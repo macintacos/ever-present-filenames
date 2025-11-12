@@ -7,7 +7,7 @@
   <description><![CDATA[
     Displays the current file name at the bottom-right corner of the editor.
     The filename stays visible even when scrolling through the file.
-    The filename appears in italics when the file has unsaved changes.
+    When the file has unsaved changes, a blue dot indicator appears and the filename is displayed in italics.
     ]]></description>
 
   <depends>com.intellij.modules.platform</depends>

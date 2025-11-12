@@ -14,7 +14,7 @@ import javax.swing.JComponent
 /**
  * A custom component that displays the filename with an icon in a rounded rectangle overlay.
  * This component is positioned at the bottom-right corner of the editor.
- * The filename is displayed in italics when the file has unsaved changes.
+ * When the file has unsaved changes, a blue dot appears before the icon and the filename is displayed in italics.
  */
 class FilenameOverlay(
     private val editor: Editor,
@@ -25,6 +25,8 @@ class FilenameOverlay(
     private val padding = JBUI.scale(5)
     private val cornerRadius = JBUI.scale(8)
     private val margin = JBUI.scale(20) // Distance from the edge of the editor
+    private val modifiedDotSize = JBUI.scale(6) // Size of the blue dot indicator for unsaved changes
+    private val modifiedDotSpacing = JBUI.scale(4) // Space between dot and icon
 
     init {
         isOpaque = false
@@ -83,8 +85,11 @@ class FilenameOverlay(
         val iconHeight = icon?.iconHeight ?: 0
         val iconSpacing = if (icon != null) JBUI.scale(4) else 0
 
-        val width = padding * 2 + iconWidth + iconSpacing + textWidth
-        val height = padding * 2 + maxOf(textHeight, iconHeight)
+        // Add space for the blue dot indicator if document is modified
+        val dotWidth = if (isModified) modifiedDotSize + modifiedDotSpacing else 0
+
+        val width = padding * 2 + dotWidth + iconWidth + iconSpacing + textWidth
+        val height = padding * 2 + maxOf(textHeight, iconHeight, if (isModified) modifiedDotSize else 0)
 
         return Dimension(width, height)
     }
@@ -117,9 +122,31 @@ class FilenameOverlay(
         )
         g2d.drawRoundRect(0, 0, width - 1, height - 1, cornerRadius, cornerRadius)
 
+        // Check if document has unsaved changes
+        val isModified = FileDocumentManager.getInstance().isDocumentUnsaved(editor.document)
+
+        var currentX = padding
+
+        // Draw blue dot indicator if document is modified
+        if (isModified) {
+            g2d.color = JBColor(
+                Color(41, 128, 185), // Light mode: blue
+                Color(100, 181, 246) // Dark mode: lighter blue
+            )
+            val dotY = (height - modifiedDotSize) / 2
+            g2d.fillOval(currentX, dotY, modifiedDotSize, modifiedDotSize)
+            currentX += modifiedDotSize + modifiedDotSpacing
+        }
+
+        // Draw icon if present
+        if (icon != null) {
+            val iconY = (height - icon.iconHeight) / 2
+            icon.paintIcon(this, g2d, currentX, iconY)
+            currentX += icon.iconWidth + JBUI.scale(4)
+        }
+
         // Set font to editor's font, make it italic if document has unsaved changes
         val baseFont = editor.colorsScheme.getFont(com.intellij.openapi.editor.colors.EditorFontType.PLAIN)
-        val isModified = FileDocumentManager.getInstance().isDocumentUnsaved(editor.document)
         g2d.font = if (isModified) {
             baseFont.deriveFont(Font.ITALIC)
         } else {
@@ -128,14 +155,6 @@ class FilenameOverlay(
         g2d.color = JBColor.foreground()
 
         val metrics = g2d.fontMetrics
-        var currentX = padding
-
-        // Draw icon if present
-        if (icon != null) {
-            val iconY = (height - icon.iconHeight) / 2
-            icon.paintIcon(this, g2d, currentX, iconY)
-            currentX += icon.iconWidth + JBUI.scale(4)
-        }
 
         // Draw filename text
         val textY = (height - metrics.height) / 2 + metrics.ascent
