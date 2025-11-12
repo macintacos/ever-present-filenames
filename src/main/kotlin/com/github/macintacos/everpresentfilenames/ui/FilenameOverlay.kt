@@ -148,6 +148,20 @@ class FilenameOverlay(
     }
 
     /**
+     * Darkens a color by the specified factor (0.0 = black, 1.0 = original color)
+     */
+    @Suppress("UseJBColor") // Returns calculated color based on theme-aware input
+    private fun darkenColor(color: Color, factor: Float): Color {
+        val clampedFactor = factor.coerceIn(0f, 1f)
+        return Color(
+            (color.red * clampedFactor).toInt().coerceIn(0, 255),
+            (color.green * clampedFactor).toInt().coerceIn(0, 255),
+            (color.blue * clampedFactor).toInt().coerceIn(0, 255),
+            color.alpha
+        )
+    }
+
+    /**
      * Shows a context menu with copy options
      */
     private fun showContextMenu(e: MouseEvent) {
@@ -248,11 +262,17 @@ class FilenameOverlay(
             RenderingHints.VALUE_TEXT_ANTIALIAS_ON
         )
 
-        // Draw rounded rectangle background
-        g2d.color = JBColor(
-            Color(255, 255, 255, 230), // Light mode: white with slight transparency
-            Color(60, 63, 65, 230)      // Dark mode: dark gray with slight transparency
+        // Draw rounded rectangle background - use editor background but darker
+        val editorBackground = editor.colorsScheme.defaultBackground
+        val darkerBackground = darkenColor(editorBackground, 0.80f) // 80% of original brightness (20% darker)
+        @Suppress("UseJBColor") // Color is dynamically calculated from theme-aware editor background
+        val backgroundColor = Color(
+            darkerBackground.red,
+            darkerBackground.green,
+            darkerBackground.blue,
+            230 // Slight transparency
         )
+        g2d.color = backgroundColor
         g2d.fillRoundRect(0, 0, width, height, cornerRadius, cornerRadius)
 
         // Draw border - cyan if editor is focused, gray otherwise
