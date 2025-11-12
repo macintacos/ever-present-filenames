@@ -10,9 +10,12 @@
 
     Features:
     - Blue dot indicator and italic text when file has unsaved changes
-    - Cyan border for focused editor, gray for unfocused editors
+    - Customizable border color for focused editor (default: cyan), gray for unfocused editors
     - Left click to copy absolute file path to clipboard
     - Right click for context menu with options to copy file name, relative path, or absolute path
+
+    Configuration:
+    To customize the focused border color, go to Settings → Appearance → Ever Present Filenames
     ]]></description>
 
   <depends>com.intellij.modules.platform</depends>
