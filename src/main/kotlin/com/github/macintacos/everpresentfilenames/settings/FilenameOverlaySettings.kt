@@ -8,46 +8,50 @@ import com.intellij.util.xmlb.XmlSerializerUtil
 import java.awt.Color
 
 @State(
-    name = "com.github.macintacos.everpresentfilenames.settings.FilenameOverlaySettings",
+    name = "FilenameOverlaySettings",
     storages = [Storage("FilenameOverlaySettings.xml")]
 )
-class FilenameOverlaySettings : PersistentStateComponent<FilenameOverlaySettings> {
+class FilenameOverlaySettings : PersistentStateComponent<FilenameOverlaySettings.State> {
 
-    // Store RGB values separately since Color is not serializable
-    var focusedBorderColorRed: Int = 0
-    var focusedBorderColorGreen: Int = 188
-    var focusedBorderColorBlue: Int = 212
+    private var myState = State()
 
-    var focusedBorderColorDarkRed: Int = 0
-    var focusedBorderColorDarkGreen: Int = 229
-    var focusedBorderColorDarkBlue: Int = 255
+    class State {
+        // Store RGB values separately since Color is not directly serializable
+        var focusedBorderColorRed: Int = 0
+        var focusedBorderColorGreen: Int = 188
+        var focusedBorderColorBlue: Int = 212
 
-    override fun getState(): FilenameOverlaySettings {
-        return this
+        var focusedBorderColorDarkRed: Int = 0
+        var focusedBorderColorDarkGreen: Int = 229
+        var focusedBorderColorDarkBlue: Int = 255
     }
 
-    override fun loadState(state: FilenameOverlaySettings) {
-        XmlSerializerUtil.copyBean(state, this)
+    override fun getState(): State {
+        return myState
+    }
+
+    override fun loadState(state: State) {
+        XmlSerializerUtil.copyBean(state, myState)
     }
 
     fun getFocusedBorderColorLight(): Color {
-        return Color(focusedBorderColorRed, focusedBorderColorGreen, focusedBorderColorBlue)
+        return Color(myState.focusedBorderColorRed, myState.focusedBorderColorGreen, myState.focusedBorderColorBlue)
     }
 
     fun setFocusedBorderColorLight(color: Color) {
-        focusedBorderColorRed = color.red
-        focusedBorderColorGreen = color.green
-        focusedBorderColorBlue = color.blue
+        myState.focusedBorderColorRed = color.red
+        myState.focusedBorderColorGreen = color.green
+        myState.focusedBorderColorBlue = color.blue
     }
 
     fun getFocusedBorderColorDark(): Color {
-        return Color(focusedBorderColorDarkRed, focusedBorderColorDarkGreen, focusedBorderColorDarkBlue)
+        return Color(myState.focusedBorderColorDarkRed, myState.focusedBorderColorDarkGreen, myState.focusedBorderColorDarkBlue)
     }
 
     fun setFocusedBorderColorDark(color: Color) {
-        focusedBorderColorDarkRed = color.red
-        focusedBorderColorDarkGreen = color.green
-        focusedBorderColorDarkBlue = color.blue
+        myState.focusedBorderColorDarkRed = color.red
+        myState.focusedBorderColorDarkGreen = color.green
+        myState.focusedBorderColorDarkBlue = color.blue
     }
 
     companion object {
