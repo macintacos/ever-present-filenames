@@ -17,6 +17,7 @@ import javax.swing.JComponent
  * A custom component that displays the filename with an icon in a rounded rectangle overlay.
  * This component is positioned at the bottom-right corner of the editor.
  * When the file has unsaved changes, a blue dot appears before the icon and the filename is displayed in italics.
+ * The border is cyan when the editor is focused, and gray when unfocused.
  */
 class FilenameOverlay(
     private val editor: Editor,
@@ -30,6 +31,7 @@ class FilenameOverlay(
     private val modifiedDotSize = JBUI.scale(6) // Size of the blue dot indicator for unsaved changes
     private val modifiedDotSpacing = JBUI.scale(4) // Space between dot and icon
     private var messageBusConnection: com.intellij.util.messages.MessageBusConnection? = null
+    private var isEditorFocused = false
 
     init {
         isOpaque = false
@@ -46,6 +48,19 @@ class FilenameOverlay(
         editor.scrollingModel.addVisibleAreaListener { _ ->
             updatePosition()
         }
+
+        // Listen for focus changes to update border color
+        editor.contentComponent.addFocusListener(object : java.awt.event.FocusListener {
+            override fun focusGained(e: java.awt.event.FocusEvent?) {
+                isEditorFocused = true
+                repaint()
+            }
+
+            override fun focusLost(e: java.awt.event.FocusEvent?) {
+                isEditorFocused = false
+                repaint()
+            }
+        })
 
         // Listen for document changes to update font style (italic for unsaved changes)
         editor.document.addDocumentListener(object : DocumentListener {
@@ -140,11 +155,18 @@ class FilenameOverlay(
         )
         g2d.fillRoundRect(0, 0, width, height, cornerRadius, cornerRadius)
 
-        // Draw border
-        g2d.color = JBColor(
-            Color(200, 200, 200, 255), // Light mode: light gray border
-            Color(100, 100, 100, 255)  // Dark mode: medium gray border
-        )
+        // Draw border - cyan if editor is focused, gray otherwise
+        g2d.color = if (isEditorFocused) {
+            JBColor(
+                Color(0, 188, 212, 255),   // Light mode: cyan border when focused
+                Color(0, 229, 255, 255)    // Dark mode: lighter cyan border when focused
+            )
+        } else {
+            JBColor(
+                Color(200, 200, 200, 255), // Light mode: light gray border
+                Color(100, 100, 100, 255)  // Dark mode: medium gray border
+            )
+        }
         g2d.drawRoundRect(0, 0, width - 1, height - 1, cornerRadius, cornerRadius)
 
         // Check if document has unsaved changes

@@ -8,6 +8,7 @@
     Displays the current file name at the bottom-right corner of the editor.
     The filename stays visible even when scrolling through the file.
     When the file has unsaved changes, a blue dot indicator appears and the filename is displayed in italics.
+    The focused editor is highlighted with a cyan border, while unfocused editors have a gray border.
     ]]></description>
 
   <depends>com.intellij.modules.platform</depends>
