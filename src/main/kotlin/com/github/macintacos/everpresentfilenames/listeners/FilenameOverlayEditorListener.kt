@@ -39,6 +39,9 @@ class FilenameOverlayEditorListener : EditorFactoryListener {
         val editor = event.editor
         val overlay = overlayMap.remove(editor) ?: return
 
+        // Clean up the overlay's resources
+        overlay.dispose()
+
         // Remove the overlay from the editor
         overlay.parent?.remove(overlay)
     }

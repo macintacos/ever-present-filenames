@@ -1,9 +1,11 @@
 package com.github.macintacos.everpresentfilenames.ui
 
+import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.editor.Editor
 import com.intellij.openapi.editor.event.DocumentEvent
 import com.intellij.openapi.editor.event.DocumentListener
 import com.intellij.openapi.fileEditor.FileDocumentManager
+import com.intellij.openapi.fileEditor.FileDocumentManagerListener
 import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.ui.JBColor
 import com.intellij.util.ui.JBUI
@@ -27,6 +29,7 @@ class FilenameOverlay(
     private val margin = JBUI.scale(20) // Distance from the edge of the editor
     private val modifiedDotSize = JBUI.scale(6) // Size of the blue dot indicator for unsaved changes
     private val modifiedDotSpacing = JBUI.scale(4) // Space between dot and icon
+    private var messageBusConnection: com.intellij.util.messages.MessageBusConnection? = null
 
     init {
         isOpaque = false
@@ -50,6 +53,28 @@ class FilenameOverlay(
                 updatePosition() // Update position in case size changes with italic font
             }
         })
+
+        // Listen for file save events to update the UI when file is saved
+        messageBusConnection = editor.project?.messageBus?.connect()
+        messageBusConnection?.subscribe(FileDocumentManagerListener.TOPIC, object : FileDocumentManagerListener {
+            override fun beforeDocumentSaving(document: com.intellij.openapi.editor.Document) {
+                // Check if this is our document
+                if (document == editor.document) {
+                    // Defer the update until after the save completes, so isDocumentUnsaved returns false
+                    ApplicationManager.getApplication().invokeLater {
+                        updatePosition() // Update to remove italic and blue dot
+                    }
+                }
+            }
+        })
+    }
+
+    /**
+     * Cleans up resources when the overlay is removed
+     */
+    fun dispose() {
+        messageBusConnection?.disconnect()
+        messageBusConnection = null
     }
 
     /**
