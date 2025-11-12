@@ -29,6 +29,11 @@ class FilenameOverlay(private val editor: Editor, private val file: VirtualFile,
                 updatePosition()
             }
         })
+
+        // Listen for scroll events to update position when scrolling
+        editor.scrollingModel.addVisibleAreaListener { _ ->
+            updatePosition()
+        }
     }
 
     /**
@@ -36,11 +41,11 @@ class FilenameOverlay(private val editor: Editor, private val file: VirtualFile,
      */
     private fun updatePosition() {
         val preferredSize = calculatePreferredSize()
-        val editorComponent = editor.component
+        val visibleArea = editor.scrollingModel.visibleArea
 
-        // Position at bottom-right with margin
-        val x = editorComponent.width - preferredSize.width - margin
-        val y = editorComponent.height - preferredSize.height - margin
+        // Position at bottom-right of the visible area with margin
+        val x = visibleArea.x + visibleArea.width - preferredSize.width - margin
+        val y = visibleArea.y + visibleArea.height - preferredSize.height - margin
 
         bounds = Rectangle(x, y, preferredSize.width, preferredSize.height)
         revalidate()
