@@ -7,8 +7,12 @@
   <description><![CDATA[
     Displays the current file name at the bottom-right corner of the editor.
     The filename stays visible even when scrolling through the file.
-    When the file has unsaved changes, a blue dot indicator appears and the filename is displayed in italics.
-    The focused editor is highlighted with a cyan border, while unfocused editors have a gray border.
+
+    Features:
+    - Blue dot indicator and italic text when file has unsaved changes
+    - Cyan border for focused editor, gray for unfocused editors
+    - Left click to copy absolute file path to clipboard
+    - Right click for context menu with options to copy file name, relative path, or absolute path
     ]]></description>
 
   <depends>com.intellij.modules.platform</depends>

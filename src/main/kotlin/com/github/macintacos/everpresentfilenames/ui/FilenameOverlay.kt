@@ -6,18 +6,32 @@ import com.intellij.openapi.editor.event.DocumentEvent
 import com.intellij.openapi.editor.event.DocumentListener
 import com.intellij.openapi.fileEditor.FileDocumentManager
 import com.intellij.openapi.fileEditor.FileDocumentManagerListener
+import com.intellij.openapi.ide.CopyPasteManager
 import com.intellij.openapi.vfs.VirtualFile
+import com.intellij.openapi.vfs.VfsUtil
 import com.intellij.ui.JBColor
+import com.intellij.ui.awt.RelativePoint
+import com.intellij.ui.popup.PopupFactoryImpl
+import com.intellij.openapi.ui.popup.JBPopupFactory
+import com.intellij.openapi.ui.popup.PopupStep
+import com.intellij.openapi.ui.popup.util.BaseListPopupStep
 import com.intellij.util.ui.JBUI
 import java.awt.*
+import java.awt.datatransfer.StringSelection
+import java.awt.event.MouseAdapter
+import java.awt.event.MouseEvent
 import javax.swing.Icon
 import javax.swing.JComponent
 
 /**
  * A custom component that displays the filename with an icon in a rounded rectangle overlay.
  * This component is positioned at the bottom-right corner of the editor.
- * When the file has unsaved changes, a blue dot appears before the icon and the filename is displayed in italics.
- * The border is cyan when the editor is focused, and gray when unfocused.
+ *
+ * Features:
+ * - Blue dot indicator and italic text when file has unsaved changes
+ * - Cyan border when editor is focused, gray when unfocused
+ * - Left click: Copy absolute file path to clipboard
+ * - Right click: Context menu with options to copy file name, relative path, or absolute path
  */
 class FilenameOverlay(
     private val editor: Editor,
@@ -62,6 +76,19 @@ class FilenameOverlay(
             }
         })
 
+        // Add mouse listener for click actions
+        addMouseListener(object : MouseAdapter() {
+            override fun mouseClicked(e: MouseEvent) {
+                if (e.button == MouseEvent.BUTTON1) {
+                    // Left click: Copy absolute path
+                    copyToClipboard(file.path)
+                } else if (e.button == MouseEvent.BUTTON3) {
+                    // Right click: Show context menu
+                    showContextMenu(e)
+                }
+            }
+        })
+
         // Listen for document changes to update font style (italic for unsaved changes)
         editor.document.addDocumentListener(object : DocumentListener {
             override fun documentChanged(event: DocumentEvent) {
@@ -90,6 +117,56 @@ class FilenameOverlay(
     fun dispose() {
         messageBusConnection?.disconnect()
         messageBusConnection = null
+    }
+
+    /**
+     * Copies text to the system clipboard
+     */
+    private fun copyToClipboard(text: String) {
+        val stringSelection = StringSelection(text)
+        CopyPasteManager.getInstance().setContents(stringSelection)
+    }
+
+    /**
+     * Shows a context menu with copy options
+     */
+    private fun showContextMenu(e: MouseEvent) {
+        val options = listOf("Copy File Name", "Copy Relative Path", "Copy Absolute Path")
+
+        val popup = JBPopupFactory.getInstance().createListPopup(
+            object : BaseListPopupStep<String>("Copy", options) {
+                override fun onChosen(selectedValue: String, finalChoice: Boolean): PopupStep<*>? {
+                    if (finalChoice) {
+                        when (selectedValue) {
+                            "Copy File Name" -> {
+                                copyToClipboard(file.name)
+                            }
+                            "Copy Relative Path" -> {
+                                val project = editor.project
+                                val relativePath = if (project != null) {
+                                    val projectBaseDir = project.baseDir
+                                    if (projectBaseDir != null) {
+                                        VfsUtil.getRelativePath(file, projectBaseDir, '/') ?: file.path
+                                    } else {
+                                        file.path
+                                    }
+                                } else {
+                                    file.path
+                                }
+                                copyToClipboard(relativePath)
+                            }
+                            "Copy Absolute Path" -> {
+                                copyToClipboard(file.path)
+                            }
+                        }
+                    }
+                    return null
+                }
+            }
+        )
+
+        // Show the popup at the mouse position
+        popup.show(RelativePoint(this, Point(e.x, e.y)))
     }
 
     /**
