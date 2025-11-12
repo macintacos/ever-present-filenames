@@ -1,6 +1,9 @@
 package com.github.macintacos.everpresentfilenames.ui
 
 import com.intellij.openapi.editor.Editor
+import com.intellij.openapi.editor.event.DocumentEvent
+import com.intellij.openapi.editor.event.DocumentListener
+import com.intellij.openapi.fileEditor.FileDocumentManager
 import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.ui.JBColor
 import com.intellij.util.ui.JBUI
@@ -11,6 +14,7 @@ import javax.swing.JComponent
 /**
  * A custom component that displays the filename with an icon in a rounded rectangle overlay.
  * This component is positioned at the bottom-right corner of the editor.
+ * The filename is displayed in italics when the file has unsaved changes.
  */
 class FilenameOverlay(
     private val editor: Editor,
@@ -37,6 +41,13 @@ class FilenameOverlay(
         editor.scrollingModel.addVisibleAreaListener { _ ->
             updatePosition()
         }
+
+        // Listen for document changes to update font style (italic for unsaved changes)
+        editor.document.addDocumentListener(object : DocumentListener {
+            override fun documentChanged(event: DocumentEvent) {
+                updatePosition() // Update position in case size changes with italic font
+            }
+        })
     }
 
     /**
@@ -59,8 +70,12 @@ class FilenameOverlay(
      * Calculates the preferred size based on text and icon dimensions
      */
     private fun calculatePreferredSize(): Dimension {
-        val metrics =
-            getFontMetrics(editor.colorsScheme.getFont(com.intellij.openapi.editor.colors.EditorFontType.PLAIN))
+        // Use italic font for size calculation if document is modified, to ensure enough space
+        val baseFont = editor.colorsScheme.getFont(com.intellij.openapi.editor.colors.EditorFontType.PLAIN)
+        val isModified = FileDocumentManager.getInstance().isDocumentUnsaved(editor.document)
+        val font = if (isModified) baseFont.deriveFont(Font.ITALIC) else baseFont
+
+        val metrics = getFontMetrics(font)
         val textWidth = metrics.stringWidth(file.name)
         val textHeight = metrics.height
 
@@ -102,9 +117,14 @@ class FilenameOverlay(
         )
         g2d.drawRoundRect(0, 0, width - 1, height - 1, cornerRadius, cornerRadius)
 
-        // Set font to editor's font
-        g2d.font =
-            editor.colorsScheme.getFont(com.intellij.openapi.editor.colors.EditorFontType.PLAIN)
+        // Set font to editor's font, make it italic if document has unsaved changes
+        val baseFont = editor.colorsScheme.getFont(com.intellij.openapi.editor.colors.EditorFontType.PLAIN)
+        val isModified = FileDocumentManager.getInstance().isDocumentUnsaved(editor.document)
+        g2d.font = if (isModified) {
+            baseFont.deriveFont(Font.ITALIC)
+        } else {
+            baseFont
+        }
         g2d.color = JBColor.foreground()
 
         val metrics = g2d.fontMetrics
