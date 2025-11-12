@@ -1,7 +1,9 @@
 package com.github.macintacos.everpresentfilenames.ui
 
+import com.github.macintacos.everpresentfilenames.settings.FilenameOverlaySettings
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.editor.Editor
+import com.intellij.openapi.editor.colors.EditorColors
 import com.intellij.openapi.editor.event.DocumentEvent
 import com.intellij.openapi.editor.event.DocumentListener
 import com.intellij.openapi.fileEditor.FileDocumentManager
@@ -275,11 +277,12 @@ class FilenameOverlay(
         g2d.color = backgroundColor
         g2d.fillRoundRect(0, 0, width, height, cornerRadius, cornerRadius)
 
-        // Draw border - cyan if editor is focused, gray otherwise
+        // Draw border - use user-configured color if focused, gray otherwise
         g2d.color = if (isEditorFocused) {
+            val settings = FilenameOverlaySettings.getInstance()
             JBColor(
-                Color(0, 188, 212, 255),   // Light mode: cyan border when focused
-                Color(0, 229, 255, 255)    // Dark mode: lighter cyan border when focused
+                settings.getFocusedBorderColorLight(),
+                settings.getFocusedBorderColorDark()
             )
         } else {
             JBColor(

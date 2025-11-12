@@ -20,5 +20,12 @@
   <extensions defaultExtensionNs="com.intellij">
     <editorFactoryListener
       implementation="com.github.macintacos.everpresentfilenames.listeners.FilenameOverlayEditorListener"/>
+    <applicationService
+      serviceImplementation="com.github.macintacos.everpresentfilenames.settings.FilenameOverlaySettings"/>
+    <applicationConfigurable
+      parentId="appearance"
+      instance="com.github.macintacos.everpresentfilenames.settings.FilenameOverlaySettingsConfigurable"
+      id="com.github.macintacos.everpresentfilenames.settings.FilenameOverlaySettingsConfigurable"
+      displayName="Ever Present Filenames"/>
   </extensions>
 </idea-plugin>
