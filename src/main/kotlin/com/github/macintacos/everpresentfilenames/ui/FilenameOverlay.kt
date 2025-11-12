@@ -12,6 +12,7 @@ import com.intellij.openapi.vfs.VfsUtil
 import com.intellij.ui.JBColor
 import com.intellij.ui.awt.RelativePoint
 import com.intellij.ui.popup.PopupFactoryImpl
+import com.intellij.openapi.ui.popup.Balloon
 import com.intellij.openapi.ui.popup.JBPopupFactory
 import com.intellij.openapi.ui.popup.PopupStep
 import com.intellij.openapi.ui.popup.util.BaseListPopupStep
@@ -82,6 +83,7 @@ class FilenameOverlay(
                 if (e.button == MouseEvent.BUTTON1) {
                     // Left click: Copy absolute path
                     copyToClipboard(file.path)
+                    showCopiedToast("Absolute Path", file.path)
                 } else if (e.button == MouseEvent.BUTTON3) {
                     // Right click: Show context menu
                     showContextMenu(e)
@@ -120,11 +122,29 @@ class FilenameOverlay(
     }
 
     /**
-     * Copies text to the system clipboard
+     * Copies text to the system clipboard and shows a toast notification
      */
     private fun copyToClipboard(text: String) {
         val stringSelection = StringSelection(text)
         CopyPasteManager.getInstance().setContents(stringSelection)
+    }
+
+    /**
+     * Shows a toast notification with the copied content
+     */
+    private fun showCopiedToast(label: String, content: String) {
+        val message = "Copied '$content' to clipboard"
+
+        val balloon = JBPopupFactory.getInstance()
+            .createHtmlTextBalloonBuilder(message, null, JBColor.background(), null)
+            .setFadeoutTime(2000)
+            .setHideOnClickOutside(true)
+            .setHideOnAction(true)
+            .setHideOnKeyOutside(true)
+            .createBalloon()
+
+        // Show the balloon above the overlay component
+        balloon.show(RelativePoint(this, Point(width / 2, 0)), Balloon.Position.above)
     }
 
     /**
@@ -140,6 +160,7 @@ class FilenameOverlay(
                         when (selectedValue) {
                             "Copy File Name" -> {
                                 copyToClipboard(file.name)
+                                showCopiedToast("File Name", file.name)
                             }
                             "Copy Relative Path" -> {
                                 val project = editor.project
@@ -154,9 +175,11 @@ class FilenameOverlay(
                                     file.path
                                 }
                                 copyToClipboard(relativePath)
+                                showCopiedToast("Relative Path", relativePath)
                             }
                             "Copy Absolute Path" -> {
                                 copyToClipboard(file.path)
+                                showCopiedToast("Absolute Path", file.path)
                             }
                         }
                     }
