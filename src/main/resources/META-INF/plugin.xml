@@ -1,16 +1,18 @@
 <!-- Plugin Configuration File. Read more: https://plugins.jetbrains.com/docs/intellij/plugin-configuration-file.html -->
 <idea-plugin>
-    <id>com.github.macintacos.everpresentfilenames</id>
-    <name>ever-present-filenames</name>
-    <vendor>macintacos</vendor>
+  <id>com.github.macintacos.everpresentfilenames</id>
+  <name>Ever Present Filenames</name>
+  <vendor>excessivedotdev</vendor>
 
-    <depends>com.intellij.modules.platform</depends>
+  <description><![CDATA[
+    Displays the current file name at the bottom-right corner of the editor.
+    The filename stays visible even when scrolling through the file.
+    ]]></description>
 
-    <resource-bundle>messages.MyBundle</resource-bundle>
+  <depends>com.intellij.modules.platform</depends>
 
-    <extensions defaultExtensionNs="com.intellij">
-        <toolWindow factoryClass="com.github.macintacos.everpresentfilenames.toolWindow.MyToolWindowFactory" id="MyToolWindow"/>
-        <postStartupActivity implementation="com.github.macintacos.everpresentfilenames.startup.MyProjectActivity" />
-        <editorFactoryListener implementation="com.github.macintacos.everpresentfilenames.listeners.FilenameOverlayEditorListener" />
-    </extensions>
+  <extensions defaultExtensionNs="com.intellij">
+    <editorFactoryListener
+      implementation="com.github.macintacos.everpresentfilenames.listeners.FilenameOverlayEditorListener"/>
+  </extensions>
 </idea-plugin>

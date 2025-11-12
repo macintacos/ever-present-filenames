@@ -7,9 +7,7 @@ import com.intellij.openapi.editor.event.EditorFactoryListener
 import com.intellij.openapi.fileEditor.FileDocumentManager
 import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.psi.PsiManager
-import java.awt.Component
 import javax.swing.Icon
-import javax.swing.JLayeredPane
 
 /**
  * Listens for editor creation events and adds a filename overlay to each editor.

@@ -1,7 +1,6 @@
 package com.github.macintacos.everpresentfilenames.ui
 
 import com.intellij.openapi.editor.Editor
-import com.intellij.openapi.fileEditor.FileDocumentManager
 import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.ui.JBColor
 import com.intellij.util.ui.JBUI
@@ -13,7 +12,11 @@ import javax.swing.JComponent
  * A custom component that displays the filename with an icon in a rounded rectangle overlay.
  * This component is positioned at the bottom-right corner of the editor.
  */
-class FilenameOverlay(private val editor: Editor, private val file: VirtualFile, private val icon: Icon?) : JComponent() {
+class FilenameOverlay(
+    private val editor: Editor,
+    private val file: VirtualFile,
+    private val icon: Icon?
+) : JComponent() {
 
     private val padding = JBUI.scale(5)
     private val cornerRadius = JBUI.scale(8)
@@ -56,7 +59,8 @@ class FilenameOverlay(private val editor: Editor, private val file: VirtualFile,
      * Calculates the preferred size based on text and icon dimensions
      */
     private fun calculatePreferredSize(): Dimension {
-        val metrics = getFontMetrics(editor.colorsScheme.getFont(com.intellij.openapi.editor.colors.EditorFontType.PLAIN))
+        val metrics =
+            getFontMetrics(editor.colorsScheme.getFont(com.intellij.openapi.editor.colors.EditorFontType.PLAIN))
         val textWidth = metrics.stringWidth(file.name)
         val textHeight = metrics.height
 
@@ -79,7 +83,10 @@ class FilenameOverlay(private val editor: Editor, private val file: VirtualFile,
 
         val g2d = g.create() as Graphics2D
         g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON)
-        g2d.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON)
+        g2d.setRenderingHint(
+            RenderingHints.KEY_TEXT_ANTIALIASING,
+            RenderingHints.VALUE_TEXT_ANTIALIAS_ON
+        )
 
         // Draw rounded rectangle background
         g2d.color = JBColor(
@@ -96,7 +103,8 @@ class FilenameOverlay(private val editor: Editor, private val file: VirtualFile,
         g2d.drawRoundRect(0, 0, width - 1, height - 1, cornerRadius, cornerRadius)
 
         // Set font to editor's font
-        g2d.font = editor.colorsScheme.getFont(com.intellij.openapi.editor.colors.EditorFontType.PLAIN)
+        g2d.font =
+            editor.colorsScheme.getFont(com.intellij.openapi.editor.colors.EditorFontType.PLAIN)
         g2d.color = JBColor.foreground()
 
         val metrics = g2d.fontMetrics
