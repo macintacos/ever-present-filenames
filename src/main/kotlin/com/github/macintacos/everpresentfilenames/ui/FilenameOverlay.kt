@@ -20,7 +20,7 @@ class FilenameOverlay(
 
     private val padding = JBUI.scale(5)
     private val cornerRadius = JBUI.scale(8)
-    private val margin = JBUI.scale(10) // Distance from the edge of the editor
+    private val margin = JBUI.scale(20) // Distance from the edge of the editor
 
     init {
         isOpaque = false
