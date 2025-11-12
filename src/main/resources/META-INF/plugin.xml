@@ -11,5 +11,6 @@
     <extensions defaultExtensionNs="com.intellij">
         <toolWindow factoryClass="com.github.macintacos.everpresentfilenames.toolWindow.MyToolWindowFactory" id="MyToolWindow"/>
         <postStartupActivity implementation="com.github.macintacos.everpresentfilenames.startup.MyProjectActivity" />
+        <editorFactoryListener implementation="com.github.macintacos.everpresentfilenames.listeners.FilenameOverlayEditorListener" />
     </extensions>
 </idea-plugin>
