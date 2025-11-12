@@ -5,7 +5,7 @@
 [![Downloads](https://img.shields.io/jetbrains/plugin/d/MARKETPLACE_ID.svg)](https://plugins.jetbrains.com/plugin/MARKETPLACE_ID)
 
 <!-- Plugin description -->
-Just show the name of files at top of each editor window. That's it.
+Just show the name of files at bottom right of each editor window. That's it.
 <!-- Plugin description end -->
 
 ## Installation
@@ -24,14 +24,6 @@ Just show the name of files at top of each editor window. That's it.
   You can also download
   the [latest release](https://plugins.jetbrains.com/plugin/MARKETPLACE_ID/versions) from JetBrains
   Marketplace and install it manually using
-  <kbd>Settings/Preferences</kbd> > <kbd>Plugins</kbd> > <kbd>⚙️</kbd> > <kbd>Install plugin from
-  disk...</kbd>
-
-- Manually:
-
-  Download
-  the [latest release](https://github.com/macintacos/ever-present-filenames/releases/latest) and
-  install it manually using
   <kbd>Settings/Preferences</kbd> > <kbd>Plugins</kbd> > <kbd>⚙️</kbd> > <kbd>Install plugin from
   disk...</kbd>
 
