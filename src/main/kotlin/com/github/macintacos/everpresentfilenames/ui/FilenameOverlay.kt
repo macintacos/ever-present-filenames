@@ -45,7 +45,8 @@ class FilenameOverlay(
     private val padding = JBUI.scale(5)
     private val cornerRadius = JBUI.scale(8)
     private val margin = JBUI.scale(20) // Distance from the edge of the editor
-    private val modifiedDotSize = JBUI.scale(6) // Size of the blue dot indicator for unsaved changes
+    private val modifiedDotSize =
+        JBUI.scale(6) // Size of the blue dot indicator for unsaved changes
     private val modifiedDotSpacing = JBUI.scale(4) // Space between dot and icon
     private var messageBusConnection: com.intellij.util.messages.MessageBusConnection? = null
     private var isEditorFocused = false
@@ -102,7 +103,7 @@ class FilenameOverlay(
 
         // Listen for file save events to update the UI when file is saved
         messageBusConnection = editor.project?.messageBus?.connect()
-        messageBusConnection?.subscribe(FileDocumentManagerListener.TOPIC, object : FileDocumentManagerListener {
+        val saveListener = object : FileDocumentManagerListener {
             override fun beforeDocumentSaving(document: com.intellij.openapi.editor.Document) {
                 // Check if this is our document
                 if (document == editor.document) {
@@ -112,7 +113,8 @@ class FilenameOverlay(
                     }
                 }
             }
-        })
+        }
+        messageBusConnection?.subscribe(FileDocumentManagerListener.TOPIC, saveListener)
     }
 
     /**
@@ -178,12 +180,14 @@ class FilenameOverlay(
                                 copyToClipboard(file.name)
                                 showCopiedToast("File Name", file.name)
                             }
+
                             "Copy Relative Path" -> {
                                 val project = editor.project
                                 val relativePath = if (project != null) {
                                     val projectBaseDir = project.baseDir
                                     if (projectBaseDir != null) {
-                                        VfsUtil.getRelativePath(file, projectBaseDir, '/') ?: file.path
+                                        VfsUtil.getRelativePath(file, projectBaseDir, '/')
+                                            ?: file.path
                                     } else {
                                         file.path
                                     }
@@ -193,6 +197,7 @@ class FilenameOverlay(
                                 copyToClipboard(relativePath)
                                 showCopiedToast("Relative Path", relativePath)
                             }
+
                             "Copy Absolute Path" -> {
                                 copyToClipboard(file.path)
                                 showCopiedToast("Absolute Path", file.path)
@@ -229,7 +234,8 @@ class FilenameOverlay(
      */
     private fun calculatePreferredSize(): Dimension {
         // Use italic font for size calculation if document is modified, to ensure enough space
-        val baseFont = editor.colorsScheme.getFont(com.intellij.openapi.editor.colors.EditorFontType.PLAIN)
+        val baseFont =
+            editor.colorsScheme.getFont(com.intellij.openapi.editor.colors.EditorFontType.PLAIN)
         val isModified = FileDocumentManager.getInstance().isDocumentUnsaved(editor.document)
         val font = if (isModified) baseFont.deriveFont(Font.ITALIC) else baseFont
 
@@ -245,7 +251,8 @@ class FilenameOverlay(
         val dotWidth = if (isModified) modifiedDotSize + modifiedDotSpacing else 0
 
         val width = padding * 2 + dotWidth + iconWidth + iconSpacing + textWidth
-        val height = padding * 2 + maxOf(textHeight, iconHeight, if (isModified) modifiedDotSize else 0)
+        val height =
+            padding * 2 + maxOf(textHeight, iconHeight, if (isModified) modifiedDotSize else 0)
 
         return Dimension(width, height)
     }
@@ -266,7 +273,9 @@ class FilenameOverlay(
 
         // Draw rounded rectangle background - use editor background but darker
         val editorBackground = editor.colorsScheme.defaultBackground
-        val darkerBackground = darkenColor(editorBackground, 0.80f) // 80% of original brightness (20% darker)
+        val darkerBackground =
+            darkenColor(editorBackground, 0.80f) // 80% of original brightness (20% darker)
+
         @Suppress("UseJBColor") // Color is dynamically calculated from theme-aware editor background
         val backgroundColor = Color(
             darkerBackground.red,
@@ -316,7 +325,8 @@ class FilenameOverlay(
         }
 
         // Set font to editor's font, make it italic if document has unsaved changes
-        val baseFont = editor.colorsScheme.getFont(com.intellij.openapi.editor.colors.EditorFontType.PLAIN)
+        val baseFont =
+            editor.colorsScheme.getFont(com.intellij.openapi.editor.colors.EditorFontType.PLAIN)
         g2d.font = if (isModified) {
             baseFont.deriveFont(Font.ITALIC)
         } else {
