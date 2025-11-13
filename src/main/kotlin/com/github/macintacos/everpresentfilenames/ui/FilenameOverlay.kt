@@ -56,6 +56,7 @@ class FilenameOverlay(
     private var isEditorFocused = false
     private var displayName: String = file.name
     private var closeButtonBounds: Rectangle? = null
+    private var isHoveringCloseButton = false
 
     init {
         isOpaque = false
@@ -100,6 +101,33 @@ class FilenameOverlay(
                 } else if (e.button == MouseEvent.BUTTON3) {
                     // Right click: Show context menu
                     showContextMenu(e)
+                }
+            }
+
+            override fun mouseExited(e: MouseEvent) {
+                // Reset hover state when mouse leaves the component
+                if (isHoveringCloseButton) {
+                    isHoveringCloseButton = false
+                    cursor = Cursor.getDefaultCursor()
+                    repaint()
+                }
+            }
+        })
+
+        // Add mouse motion listener for hover effects
+        addMouseMotionListener(object : java.awt.event.MouseMotionAdapter() {
+            override fun mouseMoved(e: MouseEvent) {
+                val wasHovering = isHoveringCloseButton
+                isHoveringCloseButton = closeButtonBounds?.contains(e.point) == true
+
+                if (wasHovering != isHoveringCloseButton) {
+                    // Update cursor
+                    cursor = if (isHoveringCloseButton) {
+                        Cursor.getPredefinedCursor(Cursor.HAND_CURSOR)
+                    } else {
+                        Cursor.getDefaultCursor()
+                    }
+                    repaint()
                 }
             }
         })
@@ -461,12 +489,31 @@ class FilenameOverlay(
         // Update close button bounds for click detection
         closeButtonBounds = Rectangle(closeButtonX, closeButtonY, closeButtonSize, closeButtonSize)
 
+        // Draw hover highlight if hovering over close button
+        if (isHoveringCloseButton) {
+            val highlightPadding = JBUI.scale(2)
+            g2d.color = getContrastingTextColor(editorBackground).let { textColor ->
+                @Suppress("UseJBColor")
+                Color(textColor.red, textColor.green, textColor.blue, 40)
+            }
+            g2d.fillRoundRect(
+                closeButtonX - highlightPadding,
+                closeButtonY - highlightPadding,
+                closeButtonSize + highlightPadding * 2,
+                closeButtonSize + highlightPadding * 2,
+                JBUI.scale(4),
+                JBUI.scale(4)
+            )
+        }
+
         // Draw the X symbol
         g2d.stroke = BasicStroke(1.5f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND)
         g2d.color = getContrastingTextColor(editorBackground).let { textColor ->
             // Make X slightly more transparent than text for a subtle appearance
+            // When hovering, make it fully opaque
+            val alpha = if (isHoveringCloseButton) 255 else 180
             @Suppress("UseJBColor")
-            Color(textColor.red, textColor.green, textColor.blue, 180)
+            Color(textColor.red, textColor.green, textColor.blue, alpha)
         }
 
         val inset = JBUI.scale(3)
