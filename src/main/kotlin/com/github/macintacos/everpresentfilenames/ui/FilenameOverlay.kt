@@ -183,6 +183,29 @@ class FilenameOverlay(
     }
 
     /**
+     * Calculates the relative luminance of a color to determine if it's light or dark
+     * Returns a value between 0 (black) and 255 (white)
+     */
+    private fun calculateLuminance(color: Color): Double {
+        // Use the relative luminance formula (perceived brightness)
+        return 0.299 * color.red + 0.587 * color.green + 0.114 * color.blue
+    }
+
+    /**
+     * Returns an appropriate text color based on the background brightness
+     */
+    @Suppress("UseJBColor") // Returns calculated color based on background luminance
+    private fun getContrastingTextColor(backgroundColor: Color): Color {
+        val luminance = calculateLuminance(backgroundColor)
+        // If luminance > 128, background is light, use dark text; otherwise use light text
+        return if (luminance > 128) {
+            Color(30, 30, 30)    // Dark text for light background
+        } else {
+            Color(220, 220, 220)  // Light text for dark background
+        }
+    }
+
+    /**
      * Shows a context menu with copy options
      */
     private fun showContextMenu(e: MouseEvent) {
@@ -349,7 +372,8 @@ class FilenameOverlay(
         } else {
             baseFont
         }
-        g2d.color = JBColor.foreground()
+        // Determine text color based on editor background brightness for optimal contrast
+        g2d.color = getContrastingTextColor(editorBackground)
 
         val metrics = g2d.fontMetrics
 
