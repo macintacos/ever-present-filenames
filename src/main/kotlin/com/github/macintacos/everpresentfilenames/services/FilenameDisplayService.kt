@@ -5,6 +5,11 @@ import com.intellij.openapi.components.Service
 import com.intellij.openapi.editor.Editor
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.vfs.VirtualFile
+import com.intellij.openapi.vfs.VirtualFileManager
+import com.intellij.openapi.vfs.newvfs.BulkFileListener
+import com.intellij.openapi.vfs.newvfs.events.VFileEvent
+import com.intellij.openapi.vfs.newvfs.events.VFileMoveEvent
+import com.intellij.openapi.vfs.newvfs.events.VFilePropertyChangeEvent
 
 /**
  * Service that tracks all open editors and calculates display names for files.
@@ -15,6 +20,40 @@ class FilenameDisplayService {
 
     private val editorFileMap = mutableMapOf<Editor, VirtualFile>()
     private val displayNameListeners = mutableMapOf<Editor, (String) -> Unit>()
+
+    init {
+        // Listen for file system changes (moves, renames)
+        val connection = ApplicationManager.getApplication().messageBus.connect()
+        connection.subscribe(VirtualFileManager.VFS_CHANGES, object : BulkFileListener {
+            override fun after(events: List<VFileEvent>) {
+                var needsRecalculation = false
+
+                for (event in events) {
+                    // Check if the event affects any of our tracked files
+                    when (event) {
+                        is VFileMoveEvent -> {
+                            // File was moved to a different directory
+                            if (editorFileMap.values.contains(event.file)) {
+                                needsRecalculation = true
+                            }
+                        }
+                        is VFilePropertyChangeEvent -> {
+                            // File property changed (e.g., renamed)
+                            if (event.propertyName == VirtualFile.PROP_NAME) {
+                                if (editorFileMap.values.contains(event.file)) {
+                                    needsRecalculation = true
+                                }
+                            }
+                        }
+                    }
+                }
+
+                if (needsRecalculation) {
+                    recalculateAllDisplayNames()
+                }
+            }
+        })
+    }
 
     /**
      * Registers an editor with its file and a callback to update the display name
