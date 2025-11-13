@@ -222,16 +222,22 @@ class FilenameDisplayService {
                     levelsToGoUp--
                 }
 
-                // Check if the parent of the first component is the project root
-                val isFirstComponentAtProjectRoot = projectBasePath != null &&
-                    currentDir?.parent?.path == projectBasePath
-
-                val pathPrefix = if (isFirstComponentAtProjectRoot) {
-                    // Don't use ".../" if the first component is at project root
-                    componentsToShow.joinToString("/")
-                } else {
-                    // Use ".../" prefix
-                    ".../" + componentsToShow.joinToString("/")
+                // Determine the appropriate prefix
+                val pathPrefix = when {
+                    // If the parent of the first component is the project root itself
+                    projectBasePath != null && currentDir?.parent?.path == projectBasePath -> {
+                        // Don't use any prefix - first component is direct child of project root
+                        componentsToShow.joinToString("/")
+                    }
+                    // If the first component IS the project root (closest matched directory is project root)
+                    projectBasePath != null && currentDir?.path == projectBasePath -> {
+                        // Use "ROOT/" prefix
+                        "ROOT/" + componentsToShow.joinToString("/")
+                    }
+                    else -> {
+                        // Use ".../" prefix for deeper paths
+                        ".../" + componentsToShow.joinToString("/")
+                    }
                 }
                 "$pathPrefix/$filename"
             }
