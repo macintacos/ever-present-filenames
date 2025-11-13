@@ -1,5 +1,6 @@
 package com.github.macintacos.everpresentfilenames.listeners
 
+import com.github.macintacos.everpresentfilenames.services.FilenameDisplayService
 import com.github.macintacos.everpresentfilenames.ui.FilenameOverlay
 import com.intellij.openapi.editor.Editor
 import com.intellij.openapi.editor.event.EditorFactoryEvent
@@ -33,11 +34,21 @@ class FilenameOverlayEditorListener : EditorFactoryListener {
 
         // Store the overlay for cleanup later
         overlayMap[editor] = overlay
+
+        // Register with the display service to handle duplicate filename logic
+        val displayService = FilenameDisplayService.getInstance()
+        displayService.registerEditor(editor, file) { displayName ->
+            overlay.updateDisplayName(displayName)
+        }
     }
 
     override fun editorReleased(event: EditorFactoryEvent) {
         val editor = event.editor
         val overlay = overlayMap.remove(editor) ?: return
+
+        // Unregister from the display service
+        val displayService = FilenameDisplayService.getInstance()
+        displayService.unregisterEditor(editor)
 
         // Clean up the overlay's resources
         overlay.dispose()

@@ -50,6 +50,7 @@ class FilenameOverlay(
     private val modifiedDotSpacing = JBUI.scale(4) // Space between dot and icon
     private var messageBusConnection: com.intellij.util.messages.MessageBusConnection? = null
     private var isEditorFocused = false
+    private var displayName: String = file.name
 
     init {
         isOpaque = false
@@ -122,6 +123,16 @@ class FilenameOverlay(
     fun dispose() {
         messageBusConnection?.disconnect()
         messageBusConnection = null
+    }
+
+    /**
+     * Updates the display name for this overlay
+     */
+    fun updateDisplayName(newDisplayName: String) {
+        if (displayName != newDisplayName) {
+            displayName = newDisplayName
+            updatePosition() // Recalculate size and repaint
+        }
     }
 
     /**
@@ -280,7 +291,7 @@ class FilenameOverlay(
         val font = if (isModified) baseFont.deriveFont(Font.ITALIC) else baseFont
 
         val metrics = getFontMetrics(font)
-        val textWidth = metrics.stringWidth(file.name)
+        val textWidth = metrics.stringWidth(displayName)
         val textHeight = metrics.height
 
         val iconWidth = icon?.iconWidth ?: 0
@@ -379,7 +390,7 @@ class FilenameOverlay(
 
         // Draw filename text
         val textY = (height - metrics.height) / 2 + metrics.ascent
-        g2d.drawString(file.name, currentX, textY)
+        g2d.drawString(displayName, currentX, textY)
 
         g2d.dispose()
     }
