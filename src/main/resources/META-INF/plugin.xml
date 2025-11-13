@@ -4,22 +4,6 @@
   <name>Ever Present Filenames</name>
   <vendor>excessivedotdev</vendor>
 
-  <description><![CDATA[
-    Displays the current file name at the bottom-right corner of the editor.
-    The filename stays visible even when scrolling through the file.
-
-    Features:
-    - Smart duplicate filename handling: shows distinguishing paths when multiple files with the same name are open
-    - Blue dot indicator and italic text when file has unsaved changes
-    - Close button (X) to close files directly from the overlay with unsaved changes prompt
-    - Customizable border color for focused editor (default: cyan), gray for unfocused editors
-    - Left click on filename to reveal file in Project view
-    - Right click for context menu with options to copy file name, relative path, or absolute path
-
-    Configuration:
-    To customize the focused border color, go to Settings → Appearance → Ever Present Filenames
-    ]]></description>
-
   <depends>com.intellij.modules.platform</depends>
 
   <extensions defaultExtensionNs="com.intellij">

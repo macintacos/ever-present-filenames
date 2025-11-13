@@ -9,15 +9,23 @@ Displays the current file name at the bottom-right corner of the editor.
 
 ## Why?
 
-I don't like tabs, so I [disable them](https://www.jetbrains.com/guide/go/tips/disable-tabs/) via the `Tab placement | None` settings toggle. However, when you do this, and you also use [split editor windows](https://www.jetbrains.com/help/idea/using-code-editor.html#split_screen), JetBrains IDEs do not tell you what file is currently open in a given split unless that split currently has focus.
+I don't like tabs, so I [disable them](https://www.jetbrains.com/guide/go/tips/disable-tabs/) via
+the `Tab placement | None` settings toggle. However, when you do this, and you also
+use [split editor windows](https://www.jetbrains.com/help/idea/using-code-editor.html#split_screen),
+JetBrains IDEs do not tell you what file is currently open in a given split unless that split
+currently has focus.
 
-This completely resolves this problem by always showing you the filename at the bottom right of the editor view, even when that editor does not have focus.
+This completely resolves this problem by always showing you the filename at the bottom right of the
+editor view, even when that editor does not have focus.
 
 ## Features
 
+- Smart duplicate filename handling: shows distinguishing paths when multiple files with the same
+  name are open
 - Blue dot indicator and italic text when file has unsaved changes
+- Close button (X) to close files directly from the overlay with unsaved changes prompt
 - Customizable border color for focused editor (default: cyan), gray for unfocused editors
-- Left click to reveal file in Project view
+- Left click on filename to reveal file in Project view
 - Right click for context menu with options to copy file name, relative path, or absolute path
 
 ## Configuration
