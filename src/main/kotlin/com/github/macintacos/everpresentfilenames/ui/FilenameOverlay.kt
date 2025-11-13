@@ -7,6 +7,8 @@ import com.intellij.openapi.editor.event.DocumentEvent
 import com.intellij.openapi.editor.event.DocumentListener
 import com.intellij.openapi.fileEditor.FileDocumentManager
 import com.intellij.openapi.fileEditor.FileDocumentManagerListener
+import com.intellij.openapi.fileEditor.FileEditorManager
+import com.intellij.openapi.ui.Messages
 import com.intellij.openapi.ide.CopyPasteManager
 import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.openapi.vfs.VfsUtil
@@ -48,9 +50,12 @@ class FilenameOverlay(
     private val modifiedDotSize =
         JBUI.scale(6) // Size of the blue dot indicator for unsaved changes
     private val modifiedDotSpacing = JBUI.scale(4) // Space between dot and icon
+    private val closeButtonSize = JBUI.scale(12) // Size of the close button
+    private val closeButtonSpacing = JBUI.scale(8) // Space between filename and close button
     private var messageBusConnection: com.intellij.util.messages.MessageBusConnection? = null
     private var isEditorFocused = false
     private var displayName: String = file.name
+    private var closeButtonBounds: Rectangle? = null
 
     init {
         isOpaque = false
@@ -85,8 +90,13 @@ class FilenameOverlay(
         addMouseListener(object : MouseAdapter() {
             override fun mouseClicked(e: MouseEvent) {
                 if (e.button == MouseEvent.BUTTON1) {
-                    // Left click: Reveal file in Project view
-                    revealInProjectView()
+                    // Check if click is on close button
+                    if (closeButtonBounds?.contains(e.point) == true) {
+                        closeFile()
+                    } else {
+                        // Left click on filename area: Reveal file in Project view
+                        revealInProjectView()
+                    }
                 } else if (e.button == MouseEvent.BUTTON3) {
                     // Right click: Show context menu
                     showContextMenu(e)
@@ -150,6 +160,52 @@ class FilenameOverlay(
             val toolWindowManager = ToolWindowManager.getInstance(project)
             val projectToolWindow = toolWindowManager.getToolWindow("Project")
             projectToolWindow?.activate(null)
+        }
+    }
+
+    /**
+     * Closes the file in the editor
+     */
+    private fun closeFile() {
+        val project = editor.project ?: return
+
+        ApplicationManager.getApplication().invokeLater {
+            val fileEditorManager = FileEditorManager.getInstance(project)
+            val fileDocumentManager = FileDocumentManager.getInstance()
+
+            // Check if document has unsaved changes
+            val isModified = fileDocumentManager.isDocumentUnsaved(editor.document)
+
+            if (isModified) {
+                // Show dialog asking user what to do with unsaved changes
+                val result = Messages.showYesNoCancelDialog(
+                    project,
+                    "File '${file.name}' has unsaved changes. Do you want to save them?",
+                    "Unsaved Changes",
+                    "Save",
+                    "Don't Save",
+                    "Cancel",
+                    Messages.getQuestionIcon()
+                )
+
+                when (result) {
+                    Messages.YES -> {
+                        // Save the file, then close it
+                        fileDocumentManager.saveDocument(editor.document)
+                        fileEditorManager.closeFile(file)
+                    }
+                    Messages.NO -> {
+                        // Close without saving
+                        fileEditorManager.closeFile(file)
+                    }
+                    Messages.CANCEL -> {
+                        // Do nothing, keep file open
+                    }
+                }
+            } else {
+                // No unsaved changes, close directly
+                fileEditorManager.closeFile(file)
+            }
         }
     }
 
@@ -301,9 +357,12 @@ class FilenameOverlay(
         // Add space for the blue dot indicator if document is modified
         val dotWidth = if (isModified) modifiedDotSize + modifiedDotSpacing else 0
 
-        val width = padding * 2 + dotWidth + iconWidth + iconSpacing + textWidth
+        // Add space for close button
+        val closeButtonWidth = closeButtonSize + closeButtonSpacing
+
+        val width = padding * 2 + dotWidth + iconWidth + iconSpacing + textWidth + closeButtonWidth
         val height =
-            padding * 2 + maxOf(textHeight, iconHeight, if (isModified) modifiedDotSize else 0)
+            padding * 2 + maxOf(textHeight, iconHeight, closeButtonSize, if (isModified) modifiedDotSize else 0)
 
         return Dimension(width, height)
     }
@@ -391,6 +450,38 @@ class FilenameOverlay(
         // Draw filename text
         val textY = (height - metrics.height) / 2 + metrics.ascent
         g2d.drawString(displayName, currentX, textY)
+
+        // Move to position for close button
+        currentX += metrics.stringWidth(displayName) + closeButtonSpacing
+
+        // Draw close button (X)
+        val closeButtonX = currentX
+        val closeButtonY = (height - closeButtonSize) / 2
+
+        // Update close button bounds for click detection
+        closeButtonBounds = Rectangle(closeButtonX, closeButtonY, closeButtonSize, closeButtonSize)
+
+        // Draw the X symbol
+        g2d.stroke = BasicStroke(1.5f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND)
+        g2d.color = getContrastingTextColor(editorBackground).let { textColor ->
+            // Make X slightly more transparent than text for a subtle appearance
+            @Suppress("UseJBColor")
+            Color(textColor.red, textColor.green, textColor.blue, 180)
+        }
+
+        val inset = JBUI.scale(3)
+        g2d.drawLine(
+            closeButtonX + inset,
+            closeButtonY + inset,
+            closeButtonX + closeButtonSize - inset,
+            closeButtonY + closeButtonSize - inset
+        )
+        g2d.drawLine(
+            closeButtonX + closeButtonSize - inset,
+            closeButtonY + inset,
+            closeButtonX + inset,
+            closeButtonY + closeButtonSize - inset
+        )
 
         g2d.dispose()
     }
