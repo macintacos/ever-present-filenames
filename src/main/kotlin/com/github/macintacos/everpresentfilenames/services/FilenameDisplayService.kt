@@ -165,6 +165,13 @@ class FilenameDisplayService {
 
         val filename = files.first().name
 
+        // Check if all files are actually the same file (same path)
+        val uniquePaths = files.map { it.path }.toSet()
+        if (uniquePaths.size == 1) {
+            // All files point to the same filepath, just show the filename
+            return files.map { filename }
+        }
+
         // Get path components for each file (excluding the filename itself)
         val pathComponents = files.map { file ->
             val pathParts = mutableListOf<String>()
@@ -189,25 +196,38 @@ class FilenameDisplayService {
             }
         }
 
-        // Check if any file is at the project root
+        // Get the project base path
         val projectBasePath = project?.basePath
-        val anyAtProjectRoot = files.any { file ->
-            projectBasePath != null && file.parent?.path == projectBasePath
-        }
 
         // Build display names
         return files.mapIndexed { index, file ->
             val components = pathComponents[index]
 
-            // Determine how many components to show after the common prefix
-            val componentsToShow = components.drop(commonPrefixLength)
+            // Include the last common parent directory in the display
+            // If commonPrefixLength is 2 (foo/bar), we drop 1 to keep "bar" in the path
+            val dropCount = if (commonPrefixLength > 0) commonPrefixLength - 1 else 0
+            val componentsToShow = components.drop(dropCount)
 
             if (componentsToShow.isEmpty()) {
                 // File is at or very close to root
                 filename
             } else {
-                val pathPrefix = if (anyAtProjectRoot) {
-                    // Don't use ".../" if any file is at project root
+                // Check if the first component to show is at the project root
+                // Walk up the directory tree from the file to find the first component we're showing
+                var currentDir = file.parent
+                var levelsToGoUp = componentsToShow.size - 1
+
+                while (currentDir != null && levelsToGoUp > 0) {
+                    currentDir = currentDir.parent
+                    levelsToGoUp--
+                }
+
+                // Check if the parent of the first component is the project root
+                val isFirstComponentAtProjectRoot = projectBasePath != null &&
+                    currentDir?.parent?.path == projectBasePath
+
+                val pathPrefix = if (isFirstComponentAtProjectRoot) {
+                    // Don't use ".../" if the first component is at project root
                     componentsToShow.joinToString("/")
                 } else {
                     // Use ".../" prefix
