@@ -2,6 +2,18 @@
 
 # Changelog
 
+## [0.2.1] - 2025-11-13
+### Added
+- New plugin icon with colorful syntax-highlighted code visualization and prominent filename display
+
+### Fixed
+- Deprecated API usage: replaced `Document.addDocumentListener()` with `EditorFactory.eventMulticaster.addDocumentListener()`
+- Deprecated API usage: replaced `project.baseDir` with `project.guessProjectDir()`
+- Plugin icon dimensions corrected to 40x40px
+
+### Changed
+- Plugin description relocated to README for better maintainability
+
 ## [0.2.0] - 2025-11-13
 ### Added
 - Duplicate filename detection: when multiple files with the same name are open in visible editor splits, displays distinguishing paths
