@@ -231,8 +231,13 @@ class FilenameDisplayService {
                     }
                     // If the first component IS the project root (closest matched directory is project root)
                     projectBasePath != null && currentDir?.path == projectBasePath -> {
-                        // Use "ROOT/" prefix
-                        "ROOT/" + componentsToShow.joinToString("/")
+                        // Use "ROOT/" prefix and drop the project directory name from componentsToShow
+                        val pathAfterRoot = componentsToShow.drop(1).joinToString("/")
+                        if (pathAfterRoot.isEmpty()) {
+                            "ROOT"
+                        } else {
+                            "ROOT/$pathAfterRoot"
+                        }
                     }
                     else -> {
                         // Use ".../" prefix for deeper paths
