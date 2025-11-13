@@ -1,0 +1,103 @@
+<svg
+  width="80"
+  height="80"
+  viewBox="0 0 512 512"
+  xmlns="http://www.w3.org/2000/svg"
+>
+  <defs>
+    <!-- JetBrains-style gradient stripe -->
+    <linearGradient id="stripeGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FF2F78"/>
+      <stop offset="50%" stop-color="#FF4B3A"/>
+      <stop offset="100%" stop-color="#5F4BFF"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Background -->
+  <rect x="0" y="0" width="512" height="512" rx="72" ry="72" fill="#050505"/>
+
+  <!-- "Code" lines - cohesive color palette inspired by the gradient -->
+  <!-- Color palette: Purple (#7B61FF), Pink (#FF6B9D), Orange (#FF8C42), Cyan (#4DD0E1), Light gray (#C5CAE9) -->
+
+  <!-- Line 1: keyword + function name -->
+  <rect x="80" y="60" width="90" height="20" rx="10" ry="10" fill="#7B61FF"/>
+  <rect x="180" y="60" width="150" height="20" rx="10" ry="10" fill="#FF8C42"/>
+
+  <!-- Line 2: indented, property/variable -->
+  <rect x="110" y="95" width="80" height="20" rx="10" ry="10" fill="#FF6B9D"/>
+  <rect x="200" y="95" width="50" height="20" rx="10" ry="10" fill="#C5CAE9"/>
+  <rect x="260" y="95" width="110" height="20" rx="10" ry="10" fill="#4DD0E1"/>
+
+  <!-- Line 3: keyword + statement -->
+  <rect x="110" y="130" width="70" height="20" rx="10" ry="10" fill="#7B61FF"/>
+  <rect x="190" y="130" width="130" height="20" rx="10" ry="10" fill="#C5CAE9"/>
+  <rect x="330" y="130" width="60" height="20" rx="10" ry="10" fill="#FF6B9D"/>
+
+  <!-- Line 4: function call -->
+  <rect x="110" y="165" width="120" height="20" rx="10" ry="10" fill="#FF8C42"/>
+  <rect x="240" y="165" width="60" height="20" rx="10" ry="10" fill="#4DD0E1"/>
+
+  <!-- Line 5: closing brace (dedented) -->
+  <rect x="80" y="200" width="35" height="20" rx="10" ry="10" fill="#C5CAE9"/>
+
+  <!-- Line 6: comment -->
+  <rect x="80" y="235" width="200" height="20" rx="10" ry="10" fill="#7B61FF" opacity="0.4"/>
+
+  <!-- Line 7: another function -->
+  <rect x="80" y="270" width="95" height="20" rx="10" ry="10" fill="#7B61FF"/>
+  <rect x="185" y="270" width="160" height="20" rx="10" ry="10" fill="#FF8C42"/>
+
+  <!-- Line 8: indented, string literal -->
+  <rect x="110" y="305" width="80" height="20" rx="10" ry="10" fill="#C5CAE9"/>
+  <rect x="200" y="305" width="170" height="20" rx="10" ry="10" fill="#4DD0E1"/>
+
+  <!-- Line 9: indented conditional -->
+  <rect x="110" y="340" width="60" height="20" rx="10" ry="10" fill="#7B61FF"/>
+  <rect x="180" y="340" width="100" height="20" rx="10" ry="10" fill="#FF6B9D"/>
+  <rect x="290" y="340" width="50" height="20" rx="10" ry="10" fill="#C5CAE9"/>
+
+  <!-- Line 10: deeply indented -->
+  <rect x="140" y="375" width="70" height="20" rx="10" ry="10" fill="#FF8C42"/>
+  <rect x="220" y="375" width="90" height="20" rx="10" ry="10" fill="#C5CAE9"/>
+
+  <!-- Line 11: closing braces -->
+  <rect x="110" y="410" width="35" height="20" rx="10" ry="10" fill="#C5CAE9"/>
+  <rect x="80" y="445" width="35" height="20" rx="10" ry="10" fill="#C5CAE9"/>
+
+  <!-- Filename overlay (bottom-right) - rounded rectangle like the actual plugin -->
+  <rect
+    x="180"
+    y="345"
+    width="285"
+    height="105"
+    rx="12"
+    ry="12"
+    fill="#2B2B2B"
+    opacity="0.95"
+  />
+
+  <!-- Border for the rounded rectangle -->
+  <rect
+    x="180"
+    y="345"
+    width="285"
+    height="105"
+    rx="12"
+    ry="12"
+    fill="none"
+    stroke="#00BCD4"
+    stroke-width="3"
+  />
+
+  <text
+    x="322"
+    y="415"
+    text-anchor="middle"
+    font-family="JetBrains Mono, Fira Code, Menlo, Monaco, Consolas, monospace"
+    font-size="62"
+    font-weight="700"
+    fill="#FFFFFF"
+  >
+    foo.txt
+  </text>
+</svg>
