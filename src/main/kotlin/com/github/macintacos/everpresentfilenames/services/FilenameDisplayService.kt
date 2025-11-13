@@ -3,7 +3,11 @@ package com.github.macintacos.everpresentfilenames.services
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.components.Service
 import com.intellij.openapi.editor.Editor
+import com.intellij.openapi.fileEditor.FileEditorManager
+import com.intellij.openapi.fileEditor.FileEditorManagerListener
+import com.intellij.openapi.fileEditor.TextEditor
 import com.intellij.openapi.project.Project
+import com.intellij.openapi.project.ProjectManager
 import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.openapi.vfs.VirtualFileManager
 import com.intellij.openapi.vfs.newvfs.BulkFileListener
@@ -22,8 +26,9 @@ class FilenameDisplayService {
     private val displayNameListeners = mutableMapOf<Editor, (String) -> Unit>()
 
     init {
-        // Listen for file system changes (moves, renames)
         val connection = ApplicationManager.getApplication().messageBus.connect()
+
+        // Listen for file system changes (moves, renames)
         connection.subscribe(VirtualFileManager.VFS_CHANGES, object : BulkFileListener {
             override fun after(events: List<VFileEvent>) {
                 var needsRecalculation = false
@@ -53,6 +58,13 @@ class FilenameDisplayService {
                 }
             }
         })
+
+        // Listen for file editor selection changes (tab switches, split changes)
+        connection.subscribe(FileEditorManagerListener.FILE_EDITOR_MANAGER, object : FileEditorManagerListener {
+            override fun selectionChanged(event: com.intellij.openapi.fileEditor.FileEditorManagerEvent) {
+                recalculateAllDisplayNames()
+            }
+        })
     }
 
     /**
@@ -74,20 +86,58 @@ class FilenameDisplayService {
     }
 
     /**
+     * Checks if an editor is currently visible in the UI
+     */
+    private fun isEditorVisible(editor: Editor): Boolean {
+        // Get all open projects
+        val projects = ProjectManager.getInstance().openProjects
+
+        for (project in projects) {
+            val fileEditorManager = FileEditorManager.getInstance(project)
+
+            // Get all selected editors (visible in splits)
+            val selectedEditors = fileEditorManager.selectedEditors
+            for (selectedEditor in selectedEditors) {
+                if (selectedEditor is TextEditor && selectedEditor.editor == editor) {
+                    return true
+                }
+            }
+
+            // Also check all editors (to handle multiple splits)
+            val allEditors = fileEditorManager.allEditors
+            for (fileEditor in allEditors) {
+                if (fileEditor is TextEditor && fileEditor.editor == editor) {
+                    // Check if this editor's component is actually showing
+                    if (fileEditor.editor.component.isVisible && fileEditor.editor.component.isShowing) {
+                        return true
+                    }
+                }
+            }
+        }
+
+        return false
+    }
+
+    /**
      * Recalculates and updates display names for all registered editors
      */
     private fun recalculateAllDisplayNames() {
-        // Group files by their filename
-        val filesByName = editorFileMap.entries.groupBy { it.value.name }
+        // Filter to only visible editors
+        val visibleEditors = editorFileMap.entries.filter { (editor, _) ->
+            isEditorVisible(editor)
+        }
+
+        // Group visible files by their filename
+        val filesByName = visibleEditors.groupBy { it.value.name }
 
         // For each group, calculate display names
         filesByName.forEach { (filename, entries) ->
             if (entries.size == 1) {
-                // Only one file with this name, just show the filename
+                // Only one visible file with this name, just show the filename
                 val editor = entries.first().key
                 displayNameListeners[editor]?.invoke(filename)
             } else {
-                // Multiple files with the same name, need to show distinguishing paths
+                // Multiple visible files with the same name, need to show distinguishing paths
                 val files = entries.map { it.value }
                 val displayNames = calculateDistinguishingPaths(files, entries.first().key.project)
 
@@ -95,6 +145,14 @@ class FilenameDisplayService {
                     displayNameListeners[entry.key]?.invoke(displayNames[index])
                 }
             }
+        }
+
+        // For editors that are registered but not visible, just show the filename
+        val invisibleEditors = editorFileMap.entries.filter { (editor, _) ->
+            !isEditorVisible(editor)
+        }
+        invisibleEditors.forEach { (editor, file) ->
+            displayNameListeners[editor]?.invoke(file.name)
         }
     }
 
