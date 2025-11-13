@@ -8,6 +8,7 @@ import com.intellij.openapi.editor.event.DocumentListener
 import com.intellij.openapi.fileEditor.FileDocumentManager
 import com.intellij.openapi.fileEditor.FileDocumentManagerListener
 import com.intellij.openapi.fileEditor.FileEditorManager
+import com.intellij.openapi.project.guessProjectDir
 import com.intellij.openapi.ui.Messages
 import com.intellij.openapi.ide.CopyPasteManager
 import com.intellij.openapi.vfs.VirtualFile
@@ -319,7 +320,7 @@ class FilenameOverlay(
                             "Copy Relative Path" -> {
                                 val project = editor.project
                                 val relativePath = if (project != null) {
-                                    val projectBaseDir = project.baseDir
+                                    val projectBaseDir = project.guessProjectDir()
                                     if (projectBaseDir != null) {
                                         VfsUtil.getRelativePath(file, projectBaseDir, '/')
                                             ?: file.path
