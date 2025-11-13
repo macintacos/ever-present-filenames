@@ -1,4 +1,4 @@
-# `ever-present-filenames`
+# Ever Present Filenames
 
 ![Build](https://github.com/macintacos/ever-present-filenames/workflows/Build/badge.svg)
 [![Version](https://img.shields.io/jetbrains/plugin/v/MARKETPLACE_ID.svg)](https://plugins.jetbrains.com/plugin/MARKETPLACE_ID)

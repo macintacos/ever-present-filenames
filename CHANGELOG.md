@@ -1,6 +1,6 @@
 <!-- Keep a Changelog guide -> https://keepachangelog.com -->
 
-# ever-present-filenames Changelog
+# Changelog
 
 ## [0.1.1] - 2025-11-13
 ### Fixed
