@@ -2,6 +2,11 @@
 
 # ever-present-filenames Changelog
 
+## [0.1.1] - 2025-11-13
+### Fixed
+- Text color contrast issue in light mode by implementing dynamic text color based on editor background luminance
+- Compilation error caused by duplicate variable declaration
+
 ## [0.1.0] - 2025-11-13
 ### Added
 - Filename overlay displayed at bottom-right corner of editor with file icon
