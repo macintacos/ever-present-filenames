@@ -3,8 +3,10 @@ package com.github.macintacos.everpresentfilenames.ui
 import com.github.macintacos.everpresentfilenames.settings.FilenameOverlaySettings
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.editor.Editor
+import com.intellij.openapi.editor.EditorFactory
 import com.intellij.openapi.editor.event.DocumentEvent
 import com.intellij.openapi.editor.event.DocumentListener
+import com.intellij.openapi.Disposable
 import com.intellij.openapi.fileEditor.FileDocumentManager
 import com.intellij.openapi.fileEditor.FileDocumentManagerListener
 import com.intellij.openapi.fileEditor.FileEditorManager
@@ -43,7 +45,7 @@ class FilenameOverlay(
     private val editor: Editor,
     private val file: VirtualFile,
     private val icon: Icon?
-) : JComponent() {
+) : JComponent(), Disposable {
 
     private val padding = JBUI.scale(5)
     private val cornerRadius = JBUI.scale(8)
@@ -134,11 +136,14 @@ class FilenameOverlay(
         })
 
         // Listen for document changes to update font style (italic for unsaved changes)
-        editor.document.addDocumentListener(object : DocumentListener {
+        EditorFactory.getInstance().eventMulticaster.addDocumentListener(object : DocumentListener {
             override fun documentChanged(event: DocumentEvent) {
-                updatePosition() // Update position in case size changes with italic font
+                // Only handle events for our specific document
+                if (event.document == editor.document) {
+                    updatePosition() // Update position in case size changes with italic font
+                }
             }
-        })
+        }, this)
 
         // Listen for file save events to update the UI when file is saved
         messageBusConnection = editor.project?.messageBus?.connect()
@@ -159,7 +164,7 @@ class FilenameOverlay(
     /**
      * Cleans up resources when the overlay is removed
      */
-    fun dispose() {
+    override fun dispose() {
         messageBusConnection?.disconnect()
         messageBusConnection = null
     }
