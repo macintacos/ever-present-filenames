@@ -3,7 +3,6 @@ package com.github.macintacos.everpresentfilenames.ui
 import com.github.macintacos.everpresentfilenames.settings.FilenameOverlaySettings
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.editor.Editor
-import com.intellij.openapi.editor.colors.EditorColors
 import com.intellij.openapi.editor.event.DocumentEvent
 import com.intellij.openapi.editor.event.DocumentListener
 import com.intellij.openapi.fileEditor.FileDocumentManager
@@ -11,9 +10,10 @@ import com.intellij.openapi.fileEditor.FileDocumentManagerListener
 import com.intellij.openapi.ide.CopyPasteManager
 import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.openapi.vfs.VfsUtil
+import com.intellij.openapi.wm.ToolWindowManager
+import com.intellij.ide.projectView.ProjectView
 import com.intellij.ui.JBColor
 import com.intellij.ui.awt.RelativePoint
-import com.intellij.ui.popup.PopupFactoryImpl
 import com.intellij.openapi.ui.popup.Balloon
 import com.intellij.openapi.ui.popup.JBPopupFactory
 import com.intellij.openapi.ui.popup.PopupStep
@@ -33,7 +33,7 @@ import javax.swing.JComponent
  * Features:
  * - Blue dot indicator and italic text when file has unsaved changes
  * - Cyan border when editor is focused, gray when unfocused
- * - Left click: Copy absolute file path to clipboard
+ * - Left click: Reveal file in Project view
  * - Right click: Context menu with options to copy file name, relative path, or absolute path
  */
 class FilenameOverlay(
@@ -84,9 +84,8 @@ class FilenameOverlay(
         addMouseListener(object : MouseAdapter() {
             override fun mouseClicked(e: MouseEvent) {
                 if (e.button == MouseEvent.BUTTON1) {
-                    // Left click: Copy absolute path
-                    copyToClipboard(file.path)
-                    showCopiedToast("Absolute Path", file.path)
+                    // Left click: Reveal file in Project view
+                    revealInProjectView()
                 } else if (e.button == MouseEvent.BUTTON3) {
                     // Right click: Show context menu
                     showContextMenu(e)
@@ -123,6 +122,24 @@ class FilenameOverlay(
     fun dispose() {
         messageBusConnection?.disconnect()
         messageBusConnection = null
+    }
+
+    /**
+     * Reveals the file in the Project view
+     */
+    private fun revealInProjectView() {
+        val project = editor.project ?: return
+
+        ApplicationManager.getApplication().invokeLater {
+            // Get the Project view and select the file
+            val projectView = ProjectView.getInstance(project)
+            projectView.select(null, file, true)
+
+            // Ensure the Project tool window is visible
+            val toolWindowManager = ToolWindowManager.getInstance(project)
+            val projectToolWindow = toolWindowManager.getToolWindow("Project")
+            projectToolWindow?.activate(null)
+        }
     }
 
     /**

@@ -11,7 +11,7 @@
     Features:
     - Blue dot indicator and italic text when file has unsaved changes
     - Customizable border color for focused editor (default: cyan), gray for unfocused editors
-    - Left click to copy absolute file path to clipboard
+    - Left click to reveal file in Project view
     - Right click for context menu with options to copy file name, relative path, or absolute path
 
     Configuration:
