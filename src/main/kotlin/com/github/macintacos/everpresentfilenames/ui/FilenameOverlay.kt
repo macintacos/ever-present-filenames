@@ -704,8 +704,8 @@ class FilenameOverlay(
         g2d.drawString(displayName, textX, textY)
 
         // Draw gradient overlay to indicate scrollable content (if there's text behind the icon)
-        // Hide gradient when hovering over text
-        if (scaledIcon != null && maxScrollOffset > 0 && !isHoveringText) {
+        // Hide gradient when hovering over text or when scrolled all the way to the left
+        if (scaledIcon != null && maxScrollOffset > 0 && scrollOffset > 0 && !isHoveringText) {
             val gradientWidth = JBUI.scale(50) // Wider gradient for more prominence
             val gradientStart = iconX + scaledIcon.iconWidth + JBUI.scale(2)
             val gradientEnd = gradientStart + gradientWidth
