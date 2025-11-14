@@ -1,6 +1,8 @@
 package com.github.macintacos.everpresentfilenames.ui
 
 import com.github.macintacos.everpresentfilenames.settings.FilenameOverlaySettings
+import com.github.macintacos.everpresentfilenames.settings.FontSource
+import com.github.macintacos.everpresentfilenames.settings.SettingsChangeListener
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.editor.Editor
 import com.intellij.openapi.editor.EditorFactory
@@ -28,8 +30,10 @@ import java.awt.*
 import java.awt.datatransfer.StringSelection
 import java.awt.event.MouseAdapter
 import java.awt.event.MouseEvent
+import java.awt.image.BufferedImage
 import javax.swing.Icon
 import javax.swing.JComponent
+import javax.swing.UIManager
 
 /**
  * A custom component that displays the filename with an icon in a rounded rectangle overlay.
@@ -54,7 +58,7 @@ class FilenameOverlay(
         JBUI.scale(6) // Size of the blue dot indicator for unsaved changes
     private val modifiedDotSpacing = JBUI.scale(4) // Space between dot and icon
     private val closeButtonSize = JBUI.scale(12) // Size of the close button
-    private val closeButtonSpacing = JBUI.scale(8) // Space between filename and close button
+    private val closeButtonSpacing = JBUI.scale(5) // Space between filename and close button
     private var messageBusConnection: com.intellij.util.messages.MessageBusConnection? = null
     private var isEditorFocused = false
     private var displayName: String = file.name
@@ -159,6 +163,17 @@ class FilenameOverlay(
             }
         }
         messageBusConnection?.subscribe(FileDocumentManagerListener.TOPIC, saveListener)
+
+        // Listen for settings changes to update font and recalculate sizes
+        val settingsListener = object : SettingsChangeListener {
+            override fun settingsChanged() {
+                ApplicationManager.getApplication().invokeLater {
+                    updatePosition() // Recalculate size with new font settings
+                }
+            }
+        }
+        ApplicationManager.getApplication().messageBus.connect(this)
+            .subscribe(SettingsChangeListener.TOPIC, settingsListener)
     }
 
     /**
@@ -167,6 +182,53 @@ class FilenameOverlay(
     override fun dispose() {
         messageBusConnection?.disconnect()
         messageBusConnection = null
+    }
+
+    /**
+     * Gets accurate font metrics for a given font using a Graphics2D context
+     * This ensures consistent measurements regardless of the font source
+     */
+    private fun getAccurateFontMetrics(font: Font): FontMetrics {
+        val img = BufferedImage(1, 1, BufferedImage.TYPE_INT_ARGB)
+        val g2d = img.createGraphics()
+        g2d.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON)
+        g2d.font = font
+        val metrics = g2d.fontMetrics
+        g2d.dispose()
+        return metrics
+    }
+
+    /**
+     * Gets the base font to use for the filename overlay based on user settings
+     */
+    private fun getBaseFont(): java.awt.Font {
+        val settings = FilenameOverlaySettings.getInstance()
+        val fontSource = settings.getFontSource()
+        val fontSize = settings.getFontSize()
+
+        val baseFont = when (fontSource) {
+            FontSource.UI_FONT -> {
+                // Use the default UI font
+                UIManager.getFont("Label.font") ?: java.awt.Font("Dialog", java.awt.Font.PLAIN, 12)
+            }
+            FontSource.EDITOR_FONT -> {
+                // Use the editor font
+                editor.colorsScheme.getFont(com.intellij.openapi.editor.colors.EditorFontType.PLAIN)
+            }
+            FontSource.CUSTOM_FONT -> {
+                // Use custom font
+                val fontFamily = settings.getCustomFontFamily()
+                val defaultFont = UIManager.getFont("Label.font") ?: java.awt.Font("Dialog", java.awt.Font.PLAIN, 12)
+                if (fontFamily.isNotEmpty()) {
+                    java.awt.Font(fontFamily, java.awt.Font.PLAIN, defaultFont.size)
+                } else {
+                    defaultFont
+                }
+            }
+        }
+
+        // Apply font size
+        return baseFont.deriveFont(fontSize.toFloat())
     }
 
     /**
@@ -375,12 +437,12 @@ class FilenameOverlay(
      */
     private fun calculatePreferredSize(): Dimension {
         // Use italic font for size calculation if document is modified, to ensure enough space
-        val baseFont =
-            editor.colorsScheme.getFont(com.intellij.openapi.editor.colors.EditorFontType.PLAIN)
+        val baseFont = getBaseFont()
         val isModified = FileDocumentManager.getInstance().isDocumentUnsaved(editor.document)
         val font = if (isModified) baseFont.deriveFont(Font.ITALIC) else baseFont
 
-        val metrics = getFontMetrics(font)
+        // Use accurate Graphics2D-based font metrics for consistent measurements
+        val metrics = getAccurateFontMetrics(font)
         val textWidth = metrics.stringWidth(displayName)
         val textHeight = metrics.height
 
@@ -391,8 +453,9 @@ class FilenameOverlay(
         // Add space for the blue dot indicator if document is modified
         val dotWidth = if (isModified) modifiedDotSize + modifiedDotSpacing else 0
 
-        // Add space for close button
-        val closeButtonWidth = closeButtonSize + closeButtonSpacing
+        // Add space for close button with symmetric spacing (same spacing on both sides of X)
+        // Layout: [padding][dot?][icon?][text][spacing][X][spacing][padding]
+        val closeButtonWidth = closeButtonSize + closeButtonSpacing * 2
 
         val width = padding * 2 + dotWidth + iconWidth + iconSpacing + textWidth + closeButtonWidth
         val height =
@@ -468,9 +531,8 @@ class FilenameOverlay(
             currentX += icon.iconWidth + JBUI.scale(4)
         }
 
-        // Set font to editor's font, make it italic if document has unsaved changes
-        val baseFont =
-            editor.colorsScheme.getFont(com.intellij.openapi.editor.colors.EditorFontType.PLAIN)
+        // Set font based on user settings, make it italic if document has unsaved changes
+        val baseFont = getBaseFont()
         g2d.font = if (isModified) {
             baseFont.deriveFont(Font.ITALIC)
         } else {
