@@ -66,6 +66,8 @@ class FilenameOverlay(
     private var isHoveringIcon = false
     private var textBounds: Rectangle? = null
     private var isHoveringText = false
+    private var scrollOffset = 0 // Horizontal scroll offset for the text
+    private var maxScrollOffset = 0 // Maximum scroll offset
 
     init {
         isOpaque = false
@@ -125,6 +127,16 @@ class FilenameOverlay(
                 }
             }
         })
+
+        // Add mouse wheel listener for horizontal scrolling
+        addMouseWheelListener { e ->
+            if (maxScrollOffset > 0) {
+                // Scroll horizontally
+                val delta = e.wheelRotation * JBUI.scale(10)
+                scrollOffset = (scrollOffset + delta).coerceIn(0, maxScrollOffset)
+                repaint()
+            }
+        }
 
         // Add mouse motion listener for hover effects
         addMouseMotionListener(object : java.awt.event.MouseMotionAdapter() {
@@ -478,12 +490,36 @@ class FilenameOverlay(
         val visibleArea = editor.scrollingModel.visibleArea
 
         // Position at bottom-right of the visible area with margin
-        val x = visibleArea.x + visibleArea.width - preferredSize.width - margin
+        var x = visibleArea.x + visibleArea.width - preferredSize.width - margin
         val y = visibleArea.y + visibleArea.height - preferredSize.height - margin
 
+        // Check if the overlay extends beyond the left edge of the visible area
+        val leftEdge = visibleArea.x + margin
+        val rightEdge = visibleArea.x + visibleArea.width - margin
+
+        var actualWidth = preferredSize.width
+
+        if (x < leftEdge) {
+            // Overlay doesn't fit, need to clamp and enable scrolling
+            // Calculate the maximum width that fits in the visible area
+            val maxWidth = rightEdge - leftEdge
+            actualWidth = minOf(preferredSize.width, maxWidth)
+
+            // Calculate how much we need to scroll
+            maxScrollOffset = preferredSize.width - actualWidth
+            x = leftEdge // Clamp to left edge
+
+            // Start scrolled all the way to the right (showing the filename, not the path)
+            scrollOffset = maxScrollOffset
+        } else {
+            // Overlay fits, no scrolling needed
+            maxScrollOffset = 0
+            scrollOffset = 0
+        }
+
         // Set both bounds and size to ensure the component actually resizes
-        bounds = Rectangle(x, y, preferredSize.width, preferredSize.height)
-        size = preferredSize
+        bounds = Rectangle(x, y, actualWidth, preferredSize.height)
+        size = Dimension(actualWidth, preferredSize.height)
         revalidate()
         repaint()
     }
@@ -590,34 +626,122 @@ class FilenameOverlay(
         }
         g2d.drawRoundRect(0, 0, width - 1, height - 1, cornerRadius, cornerRadius)
 
+        // Save original clip and set clip region to prevent content from overflowing the rounded rectangle
+        val originalClip = g2d.clip
+        g2d.clip(java.awt.geom.RoundRectangle2D.Float(
+            0f, 0f,
+            width.toFloat(), height.toFloat(),
+            cornerRadius.toFloat(), cornerRadius.toFloat()
+        ))
+
         // Check if document has unsaved changes
         val isModified = FileDocumentManager.getInstance().isDocumentUnsaved(editor.document)
 
+        // Calculate positions first
         var currentX = padding
 
-        // Draw blue dot indicator if document is modified
+        // Calculate dot position and width
+        val dotX = if (isModified) currentX else 0
+        if (isModified) {
+            currentX += modifiedDotSize + modifiedDotSpacing
+        }
+
+        // Calculate icon position
+        val scaledIcon = getScaledIcon()
+        val iconX = currentX
+        val iconY = if (scaledIcon != null) (height - scaledIcon.iconHeight) / 2 else 0
+        if (scaledIcon != null) {
+            currentX += scaledIcon.iconWidth + JBUI.scale(4)
+        }
+
+        // Set font based on user settings, make it italic if document has unsaved changes
+        val baseFont = getBaseFont()
+        val font = if (isModified) {
+            baseFont.deriveFont(Font.ITALIC)
+        } else {
+            baseFont
+        }
+        g2d.font = font
+
+        // Determine text color based on editor background brightness for optimal contrast
+        g2d.color = getContrastingTextColor(editorBackground)
+
+        // Use the same accurate font metrics method as in calculatePreferredSize
+        val metrics = getAccurateFontMetrics(font)
+
+        // Calculate text bounds for hover detection
+        val textLayout = java.awt.font.TextLayout(displayName, font, g2d.fontRenderContext)
+        val textWidth = kotlin.math.ceil(textLayout.advance).toInt()
+        val textHeight = metrics.ascent + metrics.descent
+
+        // Apply scroll offset only to text (icon remains fixed)
+        val textX = currentX - scrollOffset
+        val textY = (height + metrics.ascent - metrics.descent) / 2
+
+        // Store text bounds for hover detection (accounting for scroll)
+        textBounds = Rectangle(textX, (height - textHeight) / 2, textWidth, textHeight)
+
+        // Draw hover highlight on text if hovering
+        if (isHoveringText) {
+            val highlightPadding = JBUI.scale(2)
+            g2d.color = getContrastingTextColor(editorBackground).let { textColor ->
+                @Suppress("UseJBColor")
+                Color(textColor.red, textColor.green, textColor.blue, 40)
+            }
+            g2d.fillRoundRect(
+                textX - highlightPadding,
+                (height - textHeight) / 2 - highlightPadding,
+                textWidth + highlightPadding * 2,
+                textHeight + highlightPadding * 2,
+                JBUI.scale(4),
+                JBUI.scale(4)
+            )
+        }
+
+        // Draw filename text - properly center vertically using actual text bounds (not line height)
+        // This ensures consistent vertical centering regardless of font family/size
+        g2d.color = getContrastingTextColor(editorBackground)
+        g2d.drawString(displayName, textX, textY)
+
+        // Now draw the dot and icon on top of the text (so they're not overlapped by scrolling text)
+
+        // Draw blue dot indicator if document is modified (doesn't scroll)
         if (isModified) {
             g2d.color = JBColor(
                 Color(41, 128, 185), // Light mode: blue
                 Color(100, 181, 246) // Dark mode: lighter blue
             )
             val dotY = (height - modifiedDotSize) / 2
-            g2d.fillOval(currentX, dotY, modifiedDotSize, modifiedDotSize)
-            currentX += modifiedDotSize + modifiedDotSpacing
+            g2d.fillOval(dotX, dotY, modifiedDotSize, modifiedDotSize)
         }
 
-        // Draw scaled icon if present (acts as close button)
-        val scaledIcon = getScaledIcon()
+        // Draw scaled icon if present (acts as close button, doesn't scroll)
         if (scaledIcon != null) {
-            val iconX = currentX
-            val iconY = (height - scaledIcon.iconHeight) / 2
-
             // Store icon bounds for click detection
             iconBounds = Rectangle(iconX, iconY, scaledIcon.iconWidth, scaledIcon.iconHeight)
 
+            val highlightPadding = JBUI.scale(2)
+
+            // Always draw opaque background for icon to prevent text overlap
+            @Suppress("UseJBColor")
+            val iconBackground = Color(
+                darkerBackground.red,
+                darkerBackground.green,
+                darkerBackground.blue,
+                255 // Fully opaque
+            )
+            g2d.color = iconBackground
+            g2d.fillRoundRect(
+                iconX - highlightPadding,
+                iconY - highlightPadding,
+                scaledIcon.iconWidth + highlightPadding * 2,
+                scaledIcon.iconHeight + highlightPadding * 2,
+                JBUI.scale(4),
+                JBUI.scale(4)
+            )
+
             // Draw hover highlight if hovering over icon
             if (isHoveringIcon) {
-                val highlightPadding = JBUI.scale(2)
                 g2d.color = getContrastingTextColor(editorBackground).let { textColor ->
                     @Suppress("UseJBColor")
                     Color(textColor.red, textColor.green, textColor.blue, 40)
@@ -647,61 +771,7 @@ class FilenameOverlay(
                 // Draw normal icon when not hovering
                 scaledIcon.paintIcon(this, g2d, iconX, iconY)
             }
-
-            currentX += scaledIcon.iconWidth + JBUI.scale(4)
         }
-
-        // Set font based on user settings, make it italic if document has unsaved changes
-        val baseFont = getBaseFont()
-        val font = if (isModified) {
-            baseFont.deriveFont(Font.ITALIC)
-        } else {
-            baseFont
-        }
-        g2d.font = font
-
-        // Determine text color based on editor background brightness for optimal contrast
-        g2d.color = getContrastingTextColor(editorBackground)
-
-        // Use the same accurate font metrics method as in calculatePreferredSize
-        val metrics = getAccurateFontMetrics(font)
-
-        // Calculate text bounds for hover detection
-        val textLayout = java.awt.font.TextLayout(displayName, font, g2d.fontRenderContext)
-        val textWidth = kotlin.math.ceil(textLayout.advance).toInt()
-        val textHeight = metrics.ascent + metrics.descent
-        val textX = currentX
-        val textY = (height + metrics.ascent - metrics.descent) / 2
-
-        // Store text bounds for hover detection
-        textBounds = Rectangle(textX, (height - textHeight) / 2, textWidth, textHeight)
-
-        // Draw hover highlight on text if hovering
-        if (isHoveringText) {
-            val highlightPadding = JBUI.scale(2)
-            g2d.color = getContrastingTextColor(editorBackground).let { textColor ->
-                @Suppress("UseJBColor")
-                Color(textColor.red, textColor.green, textColor.blue, 40)
-            }
-            g2d.fillRoundRect(
-                textX - highlightPadding,
-                (height - textHeight) / 2 - highlightPadding,
-                textWidth + highlightPadding * 2,
-                textHeight + highlightPadding * 2,
-                JBUI.scale(4),
-                JBUI.scale(4)
-            )
-        }
-
-        // Ensure no clipping region is constraining text rendering
-        // Save the current clip and temporarily expand it
-        val originalClip = g2d.clip
-        g2d.clip = null
-
-        // Draw filename text - properly center vertically using actual text bounds (not line height)
-        // This ensures consistent vertical centering regardless of font family/size
-        g2d.color = getContrastingTextColor(editorBackground)
-        g2d.drawString(displayName, textX, textY)
 
         // Restore the original clip
         g2d.clip = originalClip
