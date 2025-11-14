@@ -543,8 +543,9 @@ class FilenameOverlay(
 
         val metrics = g2d.fontMetrics
 
-        // Draw filename text
-        val textY = (height - metrics.height) / 2 + metrics.ascent
+        // Draw filename text - properly center vertically using actual text bounds (not line height)
+        // This ensures consistent vertical centering regardless of font family/size
+        val textY = (height + metrics.ascent - metrics.descent) / 2
         g2d.drawString(displayName, currentX, textY)
 
         // Move to position for close button
