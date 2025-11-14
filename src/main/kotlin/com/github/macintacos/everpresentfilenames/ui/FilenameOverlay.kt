@@ -703,6 +703,43 @@ class FilenameOverlay(
         g2d.color = getContrastingTextColor(editorBackground)
         g2d.drawString(displayName, textX, textY)
 
+        // Draw gradient overlay to indicate scrollable content (if there's text behind the icon)
+        if (scaledIcon != null && maxScrollOffset > 0) {
+            val gradientWidth = JBUI.scale(50) // Wider gradient for more prominence
+            val gradientStart = iconX + scaledIcon.iconWidth + JBUI.scale(2)
+            val gradientEnd = gradientStart + gradientWidth
+
+            // Determine the base color for the gradient based on hover state
+            val baseColor = if (isHoveringText) {
+                // When hovering text, gradient should fade from transparent to the highlight color
+                getContrastingTextColor(editorBackground).let { textColor ->
+                    @Suppress("UseJBColor")
+                    Color(textColor.red, textColor.green, textColor.blue, 80) // Increased opacity
+                }
+            } else {
+                // When not hovering, use a more opaque version of the background
+                @Suppress("UseJBColor")
+                Color(darkerBackground.red, darkerBackground.green, darkerBackground.blue, 255) // Fully opaque
+            }
+
+            val gradient = java.awt.GradientPaint(
+                gradientStart.toFloat(), 0f,
+                baseColor, // Opaque on the left (near icon)
+                gradientEnd.toFloat(), 0f,
+                Color(baseColor.red, baseColor.green, baseColor.blue, 0) // Transparent on the right
+            )
+            g2d.paint = gradient
+            g2d.fillRect(
+                gradientStart,
+                (height - textHeight) / 2,
+                gradientWidth,
+                textHeight
+            )
+
+            // Reset paint
+            g2d.paint = null
+        }
+
         // Now draw the dot and icon on top of the text (so they're not overlapped by scrolling text)
 
         // First, draw a background that extends from the left edge to cover any text
