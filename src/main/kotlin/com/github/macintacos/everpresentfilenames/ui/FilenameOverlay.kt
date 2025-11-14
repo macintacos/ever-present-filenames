@@ -705,6 +705,30 @@ class FilenameOverlay(
 
         // Now draw the dot and icon on top of the text (so they're not overlapped by scrolling text)
 
+        // First, draw a background that extends from the left edge to cover any text
+        // This needs to be done before drawing the dot and icon
+        val borderWidth = 1
+        @Suppress("UseJBColor")
+        val opaqueBackground = Color(
+            darkerBackground.red,
+            darkerBackground.green,
+            darkerBackground.blue,
+            255 // Fully opaque
+        )
+
+        if (scaledIcon != null) {
+            // Calculate how far the background should extend to the right of the icon
+            val backgroundWidth = iconX + scaledIcon.iconWidth + JBUI.scale(2) + JBUI.scale(2)
+
+            g2d.color = opaqueBackground
+            g2d.fillRect(
+                borderWidth,
+                iconY - JBUI.scale(2),
+                backgroundWidth - borderWidth,
+                scaledIcon.iconHeight + JBUI.scale(2) * 2
+            )
+        }
+
         // Draw blue dot indicator if document is modified (doesn't scroll)
         if (isModified) {
             g2d.color = JBColor(
@@ -722,7 +746,6 @@ class FilenameOverlay(
 
             val highlightPadding = JBUI.scale(2)
 
-            // Always draw opaque background for icon to prevent text overlap
             @Suppress("UseJBColor")
             val iconBackground = Color(
                 darkerBackground.red,
@@ -730,18 +753,10 @@ class FilenameOverlay(
                 darkerBackground.blue,
                 255 // Fully opaque
             )
-            g2d.color = iconBackground
-            g2d.fillRoundRect(
-                iconX - highlightPadding,
-                iconY - highlightPadding,
-                scaledIcon.iconWidth + highlightPadding * 2,
-                scaledIcon.iconHeight + highlightPadding * 2,
-                JBUI.scale(4),
-                JBUI.scale(4)
-            )
 
             // Draw hover highlight if hovering over icon
             if (isHoveringIcon) {
+                // Draw hover highlight overlay
                 g2d.color = getContrastingTextColor(editorBackground).let { textColor ->
                     @Suppress("UseJBColor")
                     Color(textColor.red, textColor.green, textColor.blue, 40)
