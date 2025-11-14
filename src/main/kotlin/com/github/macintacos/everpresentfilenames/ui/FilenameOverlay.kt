@@ -212,13 +212,13 @@ class FilenameOverlay(
     }
 
     /**
-     * Override to return tooltip text only when hovering over text
+     * Override to return tooltip text when hovering over text or icon
      */
     override fun getToolTipText(event: MouseEvent?): String? {
-        return if (isHoveringText) {
-            "Reveal file in Project Outline"
-        } else {
-            null
+        return when {
+            isHoveringIcon -> "Close Tab"
+            isHoveringText -> "Reveal file in Project Outline"
+            else -> null
         }
     }
 
