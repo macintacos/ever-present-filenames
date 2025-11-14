@@ -741,6 +741,34 @@ class FilenameOverlay(
             g2d.paint = null
         }
 
+        // Draw right-side gradient to indicate more content to the right
+        // Hide when scrolled all the way to the right or when hovering
+        if (maxScrollOffset > 0 && scrollOffset < maxScrollOffset && !isHoveringText) {
+            val gradientWidth = JBUI.scale(50)
+            val gradientEnd = width - 1 // Right edge (accounting for border)
+            val gradientStart = gradientEnd - gradientWidth
+
+            // Use the same base color as the left gradient
+            val baseColor = Color(darkerBackground.red, darkerBackground.green, darkerBackground.blue, 255)
+
+            val gradient = java.awt.GradientPaint(
+                gradientStart.toFloat(), 0f,
+                Color(baseColor.red, baseColor.green, baseColor.blue, 0), // Transparent on the left
+                gradientEnd.toFloat(), 0f,
+                baseColor // Opaque on the right (at edge)
+            )
+            g2d.paint = gradient
+            g2d.fillRect(
+                gradientStart,
+                (height - textHeight) / 2,
+                gradientWidth,
+                textHeight
+            )
+
+            // Reset paint
+            g2d.paint = null
+        }
+
         // Now draw the dot and icon on top of the text (so they're not overlapped by scrolling text)
 
         // First, draw a background that extends from the left edge to cover any text
