@@ -34,6 +34,7 @@ import java.awt.event.MouseEvent
 import java.awt.image.BufferedImage
 import javax.swing.Icon
 import javax.swing.JComponent
+import javax.swing.ToolTipManager
 import javax.swing.UIManager
 
 /**
@@ -63,9 +64,13 @@ class FilenameOverlay(
     private var displayName: String = file.name
     private var iconBounds: Rectangle? = null
     private var isHoveringIcon = false
+    private var textBounds: Rectangle? = null
+    private var isHoveringText = false
 
     init {
         isOpaque = false
+        // Enable tooltips for this component
+        ToolTipManager.sharedInstance().registerComponent(this)
         updatePosition()
 
         // Listen for editor size changes to update position
@@ -112,8 +117,9 @@ class FilenameOverlay(
 
             override fun mouseExited(e: MouseEvent) {
                 // Reset hover state when mouse leaves the component
-                if (isHoveringIcon) {
+                if (isHoveringIcon || isHoveringText) {
                     isHoveringIcon = false
+                    isHoveringText = false
                     cursor = Cursor.getDefaultCursor()
                     repaint()
                 }
@@ -123,16 +129,25 @@ class FilenameOverlay(
         // Add mouse motion listener for hover effects
         addMouseMotionListener(object : java.awt.event.MouseMotionAdapter() {
             override fun mouseMoved(e: MouseEvent) {
-                val wasHovering = isHoveringIcon
-                isHoveringIcon = iconBounds?.contains(e.point) == true
+                val wasHoveringIcon = isHoveringIcon
+                val wasHoveringText = isHoveringText
 
-                if (wasHovering != isHoveringIcon) {
+                isHoveringIcon = iconBounds?.contains(e.point) == true
+                isHoveringText = textBounds?.contains(e.point) == true
+
+                // Icon takes precedence over text
+                if (isHoveringIcon) {
+                    isHoveringText = false
+                }
+
+                if (wasHoveringIcon != isHoveringIcon || wasHoveringText != isHoveringText) {
                     // Update cursor
-                    cursor = if (isHoveringIcon) {
+                    cursor = if (isHoveringIcon || isHoveringText) {
                         Cursor.getPredefinedCursor(Cursor.HAND_CURSOR)
                     } else {
                         Cursor.getDefaultCursor()
                     }
+
                     repaint()
                 }
             }
@@ -179,8 +194,20 @@ class FilenameOverlay(
      * Cleans up resources when the overlay is removed
      */
     override fun dispose() {
+        ToolTipManager.sharedInstance().unregisterComponent(this)
         messageBusConnection?.disconnect()
         messageBusConnection = null
+    }
+
+    /**
+     * Override to return tooltip text only when hovering over text
+     */
+    override fun getToolTipText(event: MouseEvent?): String? {
+        return if (isHoveringText) {
+            "Reveal file in Project Outline"
+        } else {
+            null
+        }
     }
 
     /**
@@ -639,6 +666,33 @@ class FilenameOverlay(
         // Use the same accurate font metrics method as in calculatePreferredSize
         val metrics = getAccurateFontMetrics(font)
 
+        // Calculate text bounds for hover detection
+        val textLayout = java.awt.font.TextLayout(displayName, font, g2d.fontRenderContext)
+        val textWidth = kotlin.math.ceil(textLayout.advance).toInt()
+        val textHeight = metrics.ascent + metrics.descent
+        val textX = currentX
+        val textY = (height + metrics.ascent - metrics.descent) / 2
+
+        // Store text bounds for hover detection
+        textBounds = Rectangle(textX, (height - textHeight) / 2, textWidth, textHeight)
+
+        // Draw hover highlight on text if hovering
+        if (isHoveringText) {
+            val highlightPadding = JBUI.scale(2)
+            g2d.color = getContrastingTextColor(editorBackground).let { textColor ->
+                @Suppress("UseJBColor")
+                Color(textColor.red, textColor.green, textColor.blue, 40)
+            }
+            g2d.fillRoundRect(
+                textX - highlightPadding,
+                (height - textHeight) / 2 - highlightPadding,
+                textWidth + highlightPadding * 2,
+                textHeight + highlightPadding * 2,
+                JBUI.scale(4),
+                JBUI.scale(4)
+            )
+        }
+
         // Ensure no clipping region is constraining text rendering
         // Save the current clip and temporarily expand it
         val originalClip = g2d.clip
@@ -646,8 +700,8 @@ class FilenameOverlay(
 
         // Draw filename text - properly center vertically using actual text bounds (not line height)
         // This ensures consistent vertical centering regardless of font family/size
-        val textY = (height + metrics.ascent - metrics.descent) / 2
-        g2d.drawString(displayName, currentX, textY)
+        g2d.color = getContrastingTextColor(editorBackground)
+        g2d.drawString(displayName, textX, textY)
 
         // Restore the original clip
         g2d.clip = originalClip
