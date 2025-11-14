@@ -2,6 +2,26 @@
 
 # Changelog
 
+## [0.3.0] - 2025-11-14
+### Added
+- Font customization settings: choose between UI font, Editor font, or custom font family
+- Font size adjustment setting in Appearance preferences
+- File icon scaling to match selected font size for consistent visual proportions
+- Tooltip display when hovering over filename showing "Reveal file in Project Outline"
+- Horizontal scrolling support for long filenames that don't fit in the overlay
+- Gradient indicators on left and right edges to show scrollable content direction
+- Interactive close button: file icon transforms to "X" symbol on hover
+
+### Fixed
+- Vertical and horizontal spacing improvements for better visual balance
+- Clipping issue where text could overflow behind the icon
+- Gradient visibility: hides when hovering over text for better readability
+- Gradient behavior: left gradient hidden when scrolled all the way left, right gradient hidden when scrolled all the way right
+
+### Changed
+- Close button relocated to file icon position with hover-based visibility
+- Documentation updates for improved clarity
+
 ## [0.2.1] - 2025-11-13
 ### Added
 - New plugin icon with colorful syntax-highlighted code visualization and prominent filename display
