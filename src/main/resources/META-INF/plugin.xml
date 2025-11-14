@@ -11,8 +11,6 @@
       implementation="com.github.macintacos.everpresentfilenames.listeners.FilenameOverlayEditorListener"/>
     <applicationService
       serviceImplementation="com.github.macintacos.everpresentfilenames.settings.FilenameOverlaySettings"/>
-    <applicationService
-      serviceImplementation="com.github.macintacos.everpresentfilenames.services.FilenameDisplayService"/>
     <applicationConfigurable
       parentId="appearance"
       instance="com.github.macintacos.everpresentfilenames.settings.FilenameOverlaySettingsConfigurable"
