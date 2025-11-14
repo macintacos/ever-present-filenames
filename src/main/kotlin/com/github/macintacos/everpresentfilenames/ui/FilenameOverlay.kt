@@ -21,6 +21,7 @@ import com.intellij.openapi.wm.ToolWindowManager
 import com.intellij.ide.projectView.ProjectView
 import com.intellij.ui.JBColor
 import com.intellij.ui.awt.RelativePoint
+import com.intellij.util.IconUtil
 import com.intellij.openapi.ui.popup.Balloon
 import com.intellij.openapi.ui.popup.JBPopupFactory
 import com.intellij.openapi.ui.popup.PopupStep
@@ -196,6 +197,34 @@ class FilenameOverlay(
         val metrics = g2d.fontMetrics
         g2d.dispose()
         return metrics
+    }
+
+    /**
+     * Scales the icon to match the font size
+     * Returns a scaled version of the icon that's proportional to the text height
+     * Uses IntelliJ's icon scaling utilities for sharp, high-quality results
+     */
+    private fun getScaledIcon(): Icon? {
+        if (icon == null) return null
+
+        // Get current font to determine appropriate icon size
+        val baseFont = getBaseFont()
+        val isModified = FileDocumentManager.getInstance().isDocumentUnsaved(editor.document)
+        val font = if (isModified) baseFont.deriveFont(Font.ITALIC) else baseFont
+        val metrics = getAccurateFontMetrics(font)
+
+        // Scale icon to match text height (use ascent + descent for actual text bounds)
+        val targetSize = metrics.ascent + metrics.descent
+
+        // If icon is already the right size, return it as-is
+        if (icon.iconWidth == targetSize && icon.iconHeight == targetSize) {
+            return icon
+        }
+
+        // Use IntelliJ's IconUtil.scale with a Component context for better quality
+        // This ensures the icon looks the same as in the Project view
+        val scale = targetSize.toFloat() / icon.iconWidth.toFloat()
+        return IconUtil.scale(icon, this, scale)
     }
 
     /**
@@ -446,9 +475,11 @@ class FilenameOverlay(
         val textWidth = metrics.stringWidth(displayName)
         val textHeight = metrics.height
 
-        val iconWidth = icon?.iconWidth ?: 0
-        val iconHeight = icon?.iconHeight ?: 0
-        val iconSpacing = if (icon != null) JBUI.scale(4) else 0
+        // Get scaled icon that matches font size
+        val scaledIcon = getScaledIcon()
+        val iconWidth = scaledIcon?.iconWidth ?: 0
+        val iconHeight = scaledIcon?.iconHeight ?: 0
+        val iconSpacing = if (scaledIcon != null) JBUI.scale(4) else 0
 
         // Add space for the blue dot indicator if document is modified
         val dotWidth = if (isModified) modifiedDotSize + modifiedDotSpacing else 0
@@ -524,11 +555,12 @@ class FilenameOverlay(
             currentX += modifiedDotSize + modifiedDotSpacing
         }
 
-        // Draw icon if present
-        if (icon != null) {
-            val iconY = (height - icon.iconHeight) / 2
-            icon.paintIcon(this, g2d, currentX, iconY)
-            currentX += icon.iconWidth + JBUI.scale(4)
+        // Draw scaled icon if present
+        val scaledIcon = getScaledIcon()
+        if (scaledIcon != null) {
+            val iconY = (height - scaledIcon.iconHeight) / 2
+            scaledIcon.paintIcon(this, g2d, currentX, iconY)
+            currentX += scaledIcon.iconWidth + JBUI.scale(4)
         }
 
         // Set font based on user settings, make it italic if document has unsaved changes
