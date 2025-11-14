@@ -23,14 +23,14 @@ editor view, even when that editor does not have focus.
 - Smart duplicate filename handling: shows distinguishing paths when multiple files with the same
   name are open
 - Blue dot indicator and italic text when file has unsaved changes
-- Close button (X) to close files directly from the overlay with unsaved changes prompt
-- Customizable border color for focused editor (default: cyan), gray for unfocused editors
+- Close files directly from the filename overlap by clicking on the file icon.
+- Customize the focused border color and font choices to fit in with your editor.
 - Left click on filename to reveal file in Project view
 - Right click for context menu with options to copy file name, relative path, or absolute path
 
 ## Configuration
 
-To customize the focused border color, go to Settings → Appearance → Ever Present Filenames
+Go to "Appearance" > "Ever Present Filenames" to edit the appearance of the overlay.
 <!-- Plugin description end -->
 
 ## Installation
