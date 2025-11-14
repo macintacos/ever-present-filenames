@@ -58,13 +58,11 @@ class FilenameOverlay(
     private val modifiedDotSize =
         JBUI.scale(6) // Size of the blue dot indicator for unsaved changes
     private val modifiedDotSpacing = JBUI.scale(4) // Space between dot and icon
-    private val closeButtonSize = JBUI.scale(12) // Size of the close button
-    private val closeButtonSpacing = JBUI.scale(5) // Space between filename and close button
     private var messageBusConnection: com.intellij.util.messages.MessageBusConnection? = null
     private var isEditorFocused = false
     private var displayName: String = file.name
-    private var closeButtonBounds: Rectangle? = null
-    private var isHoveringCloseButton = false
+    private var iconBounds: Rectangle? = null
+    private var isHoveringIcon = false
 
     init {
         isOpaque = false
@@ -99,8 +97,8 @@ class FilenameOverlay(
         addMouseListener(object : MouseAdapter() {
             override fun mouseClicked(e: MouseEvent) {
                 if (e.button == MouseEvent.BUTTON1) {
-                    // Check if click is on close button
-                    if (closeButtonBounds?.contains(e.point) == true) {
+                    // Check if click is on icon (which acts as close button)
+                    if (iconBounds?.contains(e.point) == true) {
                         closeFile()
                     } else {
                         // Left click on filename area: Reveal file in Project view
@@ -114,8 +112,8 @@ class FilenameOverlay(
 
             override fun mouseExited(e: MouseEvent) {
                 // Reset hover state when mouse leaves the component
-                if (isHoveringCloseButton) {
-                    isHoveringCloseButton = false
+                if (isHoveringIcon) {
+                    isHoveringIcon = false
                     cursor = Cursor.getDefaultCursor()
                     repaint()
                 }
@@ -125,12 +123,12 @@ class FilenameOverlay(
         // Add mouse motion listener for hover effects
         addMouseMotionListener(object : java.awt.event.MouseMotionAdapter() {
             override fun mouseMoved(e: MouseEvent) {
-                val wasHovering = isHoveringCloseButton
-                isHoveringCloseButton = closeButtonBounds?.contains(e.point) == true
+                val wasHovering = isHoveringIcon
+                isHoveringIcon = iconBounds?.contains(e.point) == true
 
-                if (wasHovering != isHoveringCloseButton) {
+                if (wasHovering != isHoveringIcon) {
                     // Update cursor
-                    cursor = if (isHoveringCloseButton) {
+                    cursor = if (isHoveringIcon) {
                         Cursor.getPredefinedCursor(Cursor.HAND_CURSOR)
                     } else {
                         Cursor.getDefaultCursor()
@@ -456,7 +454,9 @@ class FilenameOverlay(
         val x = visibleArea.x + visibleArea.width - preferredSize.width - margin
         val y = visibleArea.y + visibleArea.height - preferredSize.height - margin
 
+        // Set both bounds and size to ensure the component actually resizes
         bounds = Rectangle(x, y, preferredSize.width, preferredSize.height)
+        size = preferredSize
         revalidate()
         repaint()
     }
@@ -472,27 +472,51 @@ class FilenameOverlay(
 
         // Use accurate Graphics2D-based font metrics for consistent measurements
         val metrics = getAccurateFontMetrics(font)
-        val textWidth = metrics.stringWidth(displayName)
+
+        // Use TextLayout for the most accurate text bounds calculation
+        // This accounts for all rendering details including kerning, ligatures, etc.
+        val img = BufferedImage(1, 1, BufferedImage.TYPE_INT_ARGB)
+        val g2d = img.createGraphics()
+        g2d.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON)
+        g2d.setRenderingHint(RenderingHints.KEY_FRACTIONALMETRICS, RenderingHints.VALUE_FRACTIONALMETRICS_ON)
+        g2d.font = font
+
+        val textLayout = java.awt.font.TextLayout(displayName, font, g2d.fontRenderContext)
+        val textBounds = textLayout.bounds
+        g2d.dispose()
+
+        // Use advance (full width needed for rendering) plus a small buffer
+        val textWidth = kotlin.math.ceil(textLayout.advance).toInt() + 1
         val textHeight = metrics.height
 
         // Get scaled icon that matches font size
         val scaledIcon = getScaledIcon()
         val iconWidth = scaledIcon?.iconWidth ?: 0
         val iconHeight = scaledIcon?.iconHeight ?: 0
-        val iconSpacing = if (scaledIcon != null) JBUI.scale(4) else 0
 
-        // Add space for the blue dot indicator if document is modified
-        val dotWidth = if (isModified) modifiedDotSize + modifiedDotSpacing else 0
+        // Simulate the exact layout logic from paintComponent to ensure consistency
+        var calculatedWidth = padding
 
-        // Add space for close button with symmetric spacing (same spacing on both sides of X)
-        // Layout: [padding][dot?][icon?][text][spacing][X][spacing][padding]
-        val closeButtonWidth = closeButtonSize + closeButtonSpacing * 2
+        // Add blue dot if modified
+        if (isModified) {
+            calculatedWidth += modifiedDotSize + modifiedDotSpacing
+        }
 
-        val width = padding * 2 + dotWidth + iconWidth + iconSpacing + textWidth + closeButtonWidth
+        // Add icon and spacing
+        if (scaledIcon != null) {
+            calculatedWidth += scaledIcon.iconWidth + JBUI.scale(4)
+        }
+
+        // Add text width
+        calculatedWidth += textWidth
+
+        // Add right padding
+        calculatedWidth += padding
+
         val height =
-            padding * 2 + maxOf(textHeight, iconHeight, closeButtonSize, if (isModified) modifiedDotSize else 0)
+            padding * 2 + maxOf(textHeight, iconHeight, if (isModified) modifiedDotSize else 0)
 
-        return Dimension(width, height)
+        return Dimension(calculatedWidth, height)
     }
 
     override fun getPreferredSize(): Dimension {
@@ -555,81 +579,78 @@ class FilenameOverlay(
             currentX += modifiedDotSize + modifiedDotSpacing
         }
 
-        // Draw scaled icon if present
+        // Draw scaled icon if present (acts as close button)
         val scaledIcon = getScaledIcon()
         if (scaledIcon != null) {
+            val iconX = currentX
             val iconY = (height - scaledIcon.iconHeight) / 2
-            scaledIcon.paintIcon(this, g2d, currentX, iconY)
+
+            // Store icon bounds for click detection
+            iconBounds = Rectangle(iconX, iconY, scaledIcon.iconWidth, scaledIcon.iconHeight)
+
+            // Draw hover highlight if hovering over icon
+            if (isHoveringIcon) {
+                val highlightPadding = JBUI.scale(2)
+                g2d.color = getContrastingTextColor(editorBackground).let { textColor ->
+                    @Suppress("UseJBColor")
+                    Color(textColor.red, textColor.green, textColor.blue, 40)
+                }
+                g2d.fillRoundRect(
+                    iconX - highlightPadding,
+                    iconY - highlightPadding,
+                    scaledIcon.iconWidth + highlightPadding * 2,
+                    scaledIcon.iconHeight + highlightPadding * 2,
+                    JBUI.scale(4),
+                    JBUI.scale(4)
+                )
+
+                // Draw X symbol over the icon when hovering
+                g2d.stroke = BasicStroke(1.5f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND)
+                g2d.color = getContrastingTextColor(editorBackground)
+
+                val inset = (scaledIcon.iconWidth * 0.25f).toInt()
+                val x1 = iconX + inset
+                val y1 = iconY + inset
+                val x2 = iconX + scaledIcon.iconWidth - inset
+                val y2 = iconY + scaledIcon.iconHeight - inset
+
+                g2d.drawLine(x1, y1, x2, y2)
+                g2d.drawLine(x2, y1, x1, y2)
+            } else {
+                // Draw normal icon when not hovering
+                scaledIcon.paintIcon(this, g2d, iconX, iconY)
+            }
+
             currentX += scaledIcon.iconWidth + JBUI.scale(4)
         }
 
         // Set font based on user settings, make it italic if document has unsaved changes
         val baseFont = getBaseFont()
-        g2d.font = if (isModified) {
+        val font = if (isModified) {
             baseFont.deriveFont(Font.ITALIC)
         } else {
             baseFont
         }
+        g2d.font = font
+
         // Determine text color based on editor background brightness for optimal contrast
         g2d.color = getContrastingTextColor(editorBackground)
 
-        val metrics = g2d.fontMetrics
+        // Use the same accurate font metrics method as in calculatePreferredSize
+        val metrics = getAccurateFontMetrics(font)
+
+        // Ensure no clipping region is constraining text rendering
+        // Save the current clip and temporarily expand it
+        val originalClip = g2d.clip
+        g2d.clip = null
 
         // Draw filename text - properly center vertically using actual text bounds (not line height)
         // This ensures consistent vertical centering regardless of font family/size
         val textY = (height + metrics.ascent - metrics.descent) / 2
         g2d.drawString(displayName, currentX, textY)
 
-        // Move to position for close button
-        currentX += metrics.stringWidth(displayName) + closeButtonSpacing
-
-        // Draw close button (X)
-        val closeButtonX = currentX
-        val closeButtonY = (height - closeButtonSize) / 2
-
-        // Update close button bounds for click detection
-        closeButtonBounds = Rectangle(closeButtonX, closeButtonY, closeButtonSize, closeButtonSize)
-
-        // Draw hover highlight if hovering over close button
-        if (isHoveringCloseButton) {
-            val highlightPadding = JBUI.scale(2)
-            g2d.color = getContrastingTextColor(editorBackground).let { textColor ->
-                @Suppress("UseJBColor")
-                Color(textColor.red, textColor.green, textColor.blue, 40)
-            }
-            g2d.fillRoundRect(
-                closeButtonX - highlightPadding,
-                closeButtonY - highlightPadding,
-                closeButtonSize + highlightPadding * 2,
-                closeButtonSize + highlightPadding * 2,
-                JBUI.scale(4),
-                JBUI.scale(4)
-            )
-        }
-
-        // Draw the X symbol
-        g2d.stroke = BasicStroke(1.5f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND)
-        g2d.color = getContrastingTextColor(editorBackground).let { textColor ->
-            // Make X slightly more transparent than text for a subtle appearance
-            // When hovering, make it fully opaque
-            val alpha = if (isHoveringCloseButton) 255 else 180
-            @Suppress("UseJBColor")
-            Color(textColor.red, textColor.green, textColor.blue, alpha)
-        }
-
-        val inset = JBUI.scale(3)
-        g2d.drawLine(
-            closeButtonX + inset,
-            closeButtonY + inset,
-            closeButtonX + closeButtonSize - inset,
-            closeButtonY + closeButtonSize - inset
-        )
-        g2d.drawLine(
-            closeButtonX + closeButtonSize - inset,
-            closeButtonY + inset,
-            closeButtonX + inset,
-            closeButtonY + closeButtonSize - inset
-        )
+        // Restore the original clip
+        g2d.clip = originalClip
 
         g2d.dispose()
     }
