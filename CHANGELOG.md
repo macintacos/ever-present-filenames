@@ -2,6 +2,12 @@
 
 # Changelog
 
+## [0.4.0] - 2025-11-24
+### Added
+- Project view toggle behavior: clicking the same filename twice now closes the Project view instead of re-revealing it
+- New "Behavior Settings" section in plugin settings with checkbox to enable/disable Project view toggle (enabled by default)
+- Global state tracking to remember which file was last revealed across all editor tabs
+
 ## [0.3.0] - 2025-11-14
 ### Added
 - Font customization settings: choose between UI font, Editor font, or custom font family
