@@ -23,6 +23,9 @@ class FilenameOverlaySettingsConfigurable : Configurable {
     private var fontFamilyCombo: JComboBox<String>? = null
     private var fontSizeSpinner: JSpinner? = null
 
+    // Behavior settings UI components
+    private var projectViewToggleCheckbox: JCheckBox? = null
+
     override fun getDisplayName(): String {
         return "Ever Present Filenames"
     }
@@ -146,6 +149,23 @@ class FilenameOverlaySettingsConfigurable : Configurable {
         fontSizeSpinner!!.value = settings.getFontSize()
         updateFontComboState()
 
+        // Behavior settings section
+        gbc.gridx = 0
+        gbc.gridy = 6
+        gbc.gridwidth = 2
+        gbc.insets = JBUI.insets(20, 5, 5, 5)
+        val behaviorSectionLabel = JBLabel("Behavior Settings")
+        behaviorSectionLabel.font = behaviorSectionLabel.font.deriveFont(java.awt.Font.BOLD)
+        settingsPanel!!.add(behaviorSectionLabel, gbc)
+
+        // Project view toggle checkbox
+        gbc.gridy = 7
+        gbc.gridwidth = 2
+        gbc.insets = JBUI.insets(5)
+        projectViewToggleCheckbox = JCheckBox("Enable Project view toggle (click filename to close if already revealed)")
+        projectViewToggleCheckbox!!.isSelected = settings.isProjectViewToggleEnabled()
+        settingsPanel!!.add(projectViewToggleCheckbox!!, gbc)
+
         return settingsPanel!!
     }
 
@@ -163,7 +183,8 @@ class FilenameOverlaySettingsConfigurable : Configurable {
                 darkModeColor != settings.getFocusedBorderColorDark() ||
                 currentFontSource != settings.getFontSource() ||
                 fontFamilyCombo!!.selectedItem as String != settings.getCustomFontFamily() ||
-                fontSizeSpinner!!.value as Int != settings.getFontSize()
+                fontSizeSpinner!!.value as Int != settings.getFontSize() ||
+                projectViewToggleCheckbox!!.isSelected != settings.isProjectViewToggleEnabled()
     }
 
     override fun apply() {
@@ -180,6 +201,7 @@ class FilenameOverlaySettingsConfigurable : Configurable {
         settings.setFontSource(fontSource)
         settings.setCustomFontFamily(fontFamilyCombo!!.selectedItem as String)
         settings.setFontSize(fontSizeSpinner!!.value as Int)
+        settings.setProjectViewToggleEnabled(projectViewToggleCheckbox!!.isSelected)
 
         // Notify all overlays that settings have changed
         com.intellij.openapi.application.ApplicationManager.getApplication().messageBus
@@ -207,5 +229,7 @@ class FilenameOverlaySettingsConfigurable : Configurable {
 
         fontSizeSpinner!!.value = settings.getFontSize()
         fontFamilyCombo!!.isEnabled = fontSourceCombo!!.selectedIndex == 2
+
+        projectViewToggleCheckbox!!.isSelected = settings.isProjectViewToggleEnabled()
     }
 }

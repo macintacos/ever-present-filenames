@@ -44,7 +44,8 @@ import javax.swing.UIManager
  * Features:
  * - Blue dot indicator and italic text when file has unsaved changes
  * - Cyan border when editor is focused, gray when unfocused
- * - Left click: Reveal file in Project view
+ * - Left click on filename: Reveal file in Project view, or close Project view if already revealed
+ * - Left click on icon: Close the file
  * - Right click: Context menu with options to copy file name, relative path, or absolute path
  */
 class FilenameOverlay(
@@ -52,6 +53,11 @@ class FilenameOverlay(
     private val file: VirtualFile,
     private val icon: Icon?
 ) : JComponent(), Disposable {
+
+    companion object {
+        // Track the last revealed file to enable toggle behavior
+        private var lastRevealedFile: VirtualFile? = null
+    }
 
     private val padding = JBUI.scale(5)
     private val cornerRadius = JBUI.scale(8)
@@ -308,20 +314,34 @@ class FilenameOverlay(
     }
 
     /**
-     * Reveals the file in the Project view
+     * Reveals the file in the Project view, or closes the Project view if the same file is already revealed
      */
     private fun revealInProjectView() {
         val project = editor.project ?: return
 
         ApplicationManager.getApplication().invokeLater {
-            // Get the Project view and select the file
-            val projectView = ProjectView.getInstance(project)
-            projectView.select(null, file, true)
-
-            // Ensure the Project tool window is visible
             val toolWindowManager = ToolWindowManager.getInstance(project)
             val projectToolWindow = toolWindowManager.getToolWindow("Project")
-            projectToolWindow?.activate(null)
+            val settings = FilenameOverlaySettings.getInstance()
+
+            // Check if toggle behavior is enabled and if we're clicking on the same file that was last revealed
+            if (settings.isProjectViewToggleEnabled() &&
+                lastRevealedFile == file &&
+                projectToolWindow?.isVisible == true) {
+                // Same file and project window is visible, so close it
+                projectToolWindow.hide(null)
+                lastRevealedFile = null
+            } else {
+                // Different file or project window is not visible, so reveal the file
+                val projectView = ProjectView.getInstance(project)
+                projectView.select(null, file, true)
+
+                // Ensure the Project tool window is visible
+                projectToolWindow?.activate(null)
+
+                // Update the last revealed file
+                lastRevealedFile = file
+            }
         }
     }
 

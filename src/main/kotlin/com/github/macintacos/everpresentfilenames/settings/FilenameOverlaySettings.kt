@@ -44,6 +44,9 @@ class FilenameOverlaySettings : PersistentStateComponent<FilenameOverlaySettings
         var fontSource: String = FontSource.UI_FONT.name
         var customFontFamily: String = ""
         var fontSize: Int = 14
+
+        // Behavior settings
+        var enableProjectViewToggle: Boolean = true
     }
 
     override fun getState(): State {
@@ -100,6 +103,14 @@ class FilenameOverlaySettings : PersistentStateComponent<FilenameOverlaySettings
 
     fun setFontSize(size: Int) {
         myState.fontSize = size
+    }
+
+    fun isProjectViewToggleEnabled(): Boolean {
+        return myState.enableProjectViewToggle
+    }
+
+    fun setProjectViewToggleEnabled(enabled: Boolean) {
+        myState.enableProjectViewToggle = enabled
     }
 
     companion object {
