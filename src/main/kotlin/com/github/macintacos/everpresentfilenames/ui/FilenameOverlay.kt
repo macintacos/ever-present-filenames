@@ -50,9 +50,10 @@ import javax.swing.UIManager
 data class GitLineStats(
     val added: Int,
     val removed: Int,
-    val modified: Int
+    val modified: Int,
+    val isUntracked: Boolean = false
 ) {
-    fun hasChanges(): Boolean = added > 0 || removed > 0 || modified > 0
+    fun hasChanges(): Boolean = added > 0 || removed > 0 || modified > 0 || isUntracked
 }
 
 /**
@@ -81,6 +82,7 @@ class FilenameOverlay(
         private val gitStatsAddedIcon = IconLoader.getIcon("/icons/gitStatsAdded.svg", FilenameOverlay::class.java)
         private val gitStatsRemovedIcon = IconLoader.getIcon("/icons/gitStatsRemoved.svg", FilenameOverlay::class.java)
         private val gitStatsModifiedIcon = IconLoader.getIcon("/icons/gitStatsModified.svg", FilenameOverlay::class.java)
+        private val gitStatsUntrackedIcon = IconLoader.getIcon("/icons/gitStatsUntracked.svg", FilenameOverlay::class.java)
     }
 
     private val padding = JBUI.scale(5)
@@ -284,7 +286,13 @@ class FilenameOverlay(
     override fun getToolTipText(event: MouseEvent?): String? {
         return when {
             isHoveringIcon -> "Close Tab"
-            isHoveringGitStats -> "Show Diff"
+            isHoveringGitStats -> {
+                if (currentGitStats?.isUntracked == true) {
+                    "Show Diff (Currently Untracked)"
+                } else {
+                    "Show Diff"
+                }
+            }
             isHoveringText -> "Reveal file in Project Outline"
             else -> null
         }
@@ -395,6 +403,21 @@ class FilenameOverlay(
                 absolutePath.removePrefix(repoRootPath).removePrefix("/")
             } else {
                 absolutePath
+            }
+
+            // First, check if file is untracked using git status --porcelain
+            val statusProcess = ProcessBuilder()
+                .command("git", "status", "--porcelain", "--", relativePath)
+                .directory(java.io.File(repoRootPath))
+                .redirectErrorStream(false)
+                .start()
+
+            val statusOutput = statusProcess.inputStream.bufferedReader().use { it.readText().trim() }
+            statusProcess.waitFor()
+
+            // Check if file is untracked (starts with "??")
+            if (statusOutput.startsWith("??")) {
+                return GitLineStats(0, 0, 0, isUntracked = true)
             }
 
             // Run git diff --numstat HEAD using ProcessBuilder
@@ -509,6 +532,13 @@ class FilenameOverlay(
         if (stats.modified > 0) {
             if (hasContent) width += gitStatsItemSpacing
             width += calculateGitStatItemWidth(stats.modified, metrics)
+            hasContent = true
+        }
+
+        // Untracked (just shows icon, no number)
+        if (stats.isUntracked) {
+            if (hasContent) width += gitStatsItemSpacing
+            width += gitStatsIconSize
         }
 
         // Closing parenthesis
@@ -607,9 +637,18 @@ class FilenameOverlay(
         repaint()
 
         ApplicationManager.getApplication().invokeLater {
-            // Get the change for this file from the ChangeListManager
             val changeListManager = ChangeListManager.getInstance(project)
-            val change = changeListManager.getChange(file)
+
+            // First try to get a tracked change
+            var change = changeListManager.getChange(file)
+
+            // If no change found, check if file is unversioned and create a change for it
+            if (change == null && changeListManager.isUnversioned(file)) {
+                // For unversioned files, create a Change representing a new file
+                val filePath = com.intellij.vcsUtil.VcsUtil.getFilePath(file)
+                val afterRevision = com.intellij.openapi.vcs.changes.CurrentContentRevision(filePath)
+                change = com.intellij.openapi.vcs.changes.Change(null, afterRevision)
+            }
 
             if (change != null) {
                 // Show the diff using the standard ShowDiffAction
@@ -1012,6 +1051,18 @@ class FilenameOverlay(
 
             // Blue rounded square with dot for modifications
             drawStatItem(gitStats.modified, gitStatsModifiedIcon)
+
+            // Yellow rounded square with ? for untracked files (no number, just icon)
+            if (gitStats.isUntracked) {
+                if (hasDrawnItem) {
+                    statsX += gitStatsItemSpacing
+                }
+                val scaledIcon = IconUtil.scale(gitStatsUntrackedIcon, this@FilenameOverlay, gitStatsIconSize.toFloat() / gitStatsUntrackedIcon.iconWidth.toFloat())
+                val iconY = (height - scaledIcon.iconHeight) / 2
+                scaledIcon.paintIcon(this@FilenameOverlay, g2d, statsX, iconY)
+                statsX += scaledIcon.iconWidth
+                hasDrawnItem = true
+            }
 
             // Draw closing parenthesis
             g2d.color = getContrastingTextColor(editorBackground)
