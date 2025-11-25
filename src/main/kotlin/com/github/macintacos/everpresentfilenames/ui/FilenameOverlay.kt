@@ -19,6 +19,9 @@ import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.openapi.vfs.VfsUtil
 import com.intellij.openapi.wm.ToolWindowManager
 import com.intellij.ide.projectView.ProjectView
+import git4idea.repo.GitRepositoryManager
+import com.intellij.util.Alarm
+import com.intellij.openapi.util.IconLoader
 import com.intellij.ui.JBColor
 import com.intellij.ui.awt.RelativePoint
 import com.intellij.util.IconUtil
@@ -38,15 +41,27 @@ import javax.swing.ToolTipManager
 import javax.swing.UIManager
 
 /**
+ * Data class holding git line change statistics
+ */
+data class GitLineStats(
+    val added: Int,
+    val removed: Int,
+    val modified: Int
+) {
+    fun hasChanges(): Boolean = added > 0 || removed > 0 || modified > 0
+}
+
+/**
  * A custom component that displays the filename with an icon in a rounded rectangle overlay.
  * This component is positioned at the bottom-right corner of the editor.
  *
  * Features:
- * - Blue dot indicator and italic text when file has unsaved changes
+ * - Blue dot indicator when file has unsaved changes
  * - Cyan border when editor is focused, gray when unfocused
  * - Left click on filename: Reveal file in Project view, or close Project view if already revealed
  * - Left click on icon: Close the file
  * - Right click: Context menu with options to copy file name, relative path, or absolute path
+ * - Git line stats showing added/removed/modified line counts
  */
 class FilenameOverlay(
     private val editor: Editor,
@@ -57,6 +72,11 @@ class FilenameOverlay(
     companion object {
         // Track the last revealed file to enable toggle behavior
         private var lastRevealedFile: VirtualFile? = null
+
+        // Custom git stats icons
+        private val gitStatsAddedIcon = IconLoader.getIcon("/icons/gitStatsAdded.svg", FilenameOverlay::class.java)
+        private val gitStatsRemovedIcon = IconLoader.getIcon("/icons/gitStatsRemoved.svg", FilenameOverlay::class.java)
+        private val gitStatsModifiedIcon = IconLoader.getIcon("/icons/gitStatsModified.svg", FilenameOverlay::class.java)
     }
 
     private val padding = JBUI.scale(5)
@@ -65,7 +85,14 @@ class FilenameOverlay(
     private val modifiedDotSize =
         JBUI.scale(6) // Size of the blue dot indicator for unsaved changes
     private val modifiedDotSpacing = JBUI.scale(4) // Space between dot and icon
+    private val gitStatsSpacing = JBUI.scale(6) // Space before git stats
+    private val gitStatsIconSize = JBUI.scale(12) // Size of the scaled icons
+    private val gitStatsNumberSpacing = JBUI.scale(2) // Space between icon and number
+    private val gitStatsItemSpacing = JBUI.scale(6) // Space between stat items
     private var messageBusConnection: com.intellij.util.messages.MessageBusConnection? = null
+    private var currentGitStats: GitLineStats? = null
+    private val gitStatsUpdateAlarm = Alarm(Alarm.ThreadToUse.SWING_THREAD, this)
+    private val gitStatsDebounceMs = 500 // Debounce delay in milliseconds
     private var isEditorFocused = false
     private var displayName: String = file.name
     private var iconBounds: Rectangle? = null
@@ -171,15 +198,19 @@ class FilenameOverlay(
             }
         })
 
-        // Listen for document changes to update font style (italic for unsaved changes)
+        // Listen for document changes to update modified indicator (blue dot)
         EditorFactory.getInstance().eventMulticaster.addDocumentListener(object : DocumentListener {
             override fun documentChanged(event: DocumentEvent) {
                 // Only handle events for our specific document
                 if (event.document == editor.document) {
-                    updatePosition() // Update position in case size changes with italic font
+                    updatePosition() // Update position for modified dot indicator
+                    // Note: Git stats only update on file save, not on every keystroke
                 }
             }
         }, this)
+
+        // Initialize git stats
+        updateGitStats()
 
         // Listen for file save events to update the UI when file is saved
         messageBusConnection = editor.project?.messageBus?.connect()
@@ -187,19 +218,22 @@ class FilenameOverlay(
             override fun beforeDocumentSaving(document: com.intellij.openapi.editor.Document) {
                 // Check if this is our document
                 if (document == editor.document) {
-                    // Defer the update until after the save completes, so isDocumentUnsaved returns false
+                    // Defer the update until after the save completes
                     ApplicationManager.getApplication().invokeLater {
-                        updatePosition() // Update to remove italic and blue dot
+                        updatePosition() // Update to remove blue dot
+                        // Schedule git stats update after save (with delay to ensure file is written)
+                        scheduleGitStatsUpdate()
                     }
                 }
             }
         }
         messageBusConnection?.subscribe(FileDocumentManagerListener.TOPIC, saveListener)
 
-        // Listen for settings changes to update font and recalculate sizes
+        // Listen for settings changes to update font, git stats, and recalculate sizes
         val settingsListener = object : SettingsChangeListener {
             override fun settingsChanged() {
                 ApplicationManager.getApplication().invokeLater {
+                    updateGitStats() // Refresh git stats (will clear if feature disabled)
                     updatePosition() // Recalculate size with new font settings
                 }
             }
@@ -252,9 +286,7 @@ class FilenameOverlay(
 
         // Get current font to determine appropriate icon size
         val baseFont = getBaseFont()
-        val isModified = FileDocumentManager.getInstance().isDocumentUnsaved(editor.document)
-        val font = if (isModified) baseFont.deriveFont(Font.ITALIC) else baseFont
-        val metrics = getAccurateFontMetrics(font)
+        val metrics = getAccurateFontMetrics(baseFont)
 
         // Scale icon to match text height (use ascent + descent for actual text bounds)
         val targetSize = metrics.ascent + metrics.descent
@@ -311,6 +343,150 @@ class FilenameOverlay(
             displayName = newDisplayName
             updatePosition() // Recalculate size and repaint
         }
+    }
+
+    /**
+     * Calculates the git line change statistics for the current file
+     * Uses git diff --numstat to get actual git statistics
+     */
+    private fun calculateGitLineStats(): GitLineStats? {
+        val project = editor.project ?: return null
+        val settings = FilenameOverlaySettings.getInstance()
+        if (!settings.isGitLineStatsEnabled()) return null
+
+        try {
+            // Get the git repository for this file
+            val repositoryManager = GitRepositoryManager.getInstance(project)
+            val repository = repositoryManager.getRepositoryForFile(file) ?: return null
+
+            val repoRootPath = repository.root.path
+
+            // Get relative path from repo root
+            val absolutePath = file.path
+            val relativePath = if (absolutePath.startsWith(repoRootPath)) {
+                absolutePath.removePrefix(repoRootPath).removePrefix("/")
+            } else {
+                absolutePath
+            }
+
+            // Run git diff --numstat HEAD using ProcessBuilder
+            val processBuilder = ProcessBuilder()
+                .command("git", "diff", "--numstat", "HEAD", "--", relativePath)
+                .directory(java.io.File(repoRootPath))
+                .redirectErrorStream(false)
+
+            val process = processBuilder.start()
+
+            // Read output before waiting (to prevent deadlock)
+            val output = process.inputStream.bufferedReader().use { it.readText().trim() }
+            val errorOutput = process.errorStream.bufferedReader().use { it.readText().trim() }
+
+            val exitCode = process.waitFor()
+
+            // If command failed or no output, return null
+            if (exitCode != 0 || output.isEmpty()) {
+                return null
+            }
+
+            // Parse the output: "<added>\t<removed>\t<filename>"
+            val line = output.lines().firstOrNull() ?: return null
+            val parts = line.split("\t")
+            if (parts.size < 2) return null
+
+            // Handle binary files (shown as "-" in git diff --numstat)
+            val added = parts[0].trim().toIntOrNull() ?: return null
+            val removed = parts[1].trim().toIntOrNull() ?: return null
+
+            // Note: Git doesn't have a concept of "modified" lines
+            // A changed line shows as +1 -1 (one add, one remove)
+            // We show the raw git numbers without trying to infer modifications
+            val modified = 0
+
+            return if (added > 0 || removed > 0) {
+                GitLineStats(added, removed, modified)
+            } else {
+                null
+            }
+        } catch (e: Exception) {
+            // If anything goes wrong, just return null
+            return null
+        }
+    }
+
+    /**
+     * Updates the git line stats and repaints if changed
+     * Runs the git command in a background thread to avoid blocking the UI
+     */
+    private fun updateGitStats() {
+        ApplicationManager.getApplication().executeOnPooledThread {
+            val newStats = calculateGitLineStats()
+            ApplicationManager.getApplication().invokeLater {
+                if (currentGitStats != newStats) {
+                    currentGitStats = newStats
+                    updatePosition() // Recalculate size and repaint
+                }
+            }
+        }
+    }
+
+    /**
+     * Schedules a debounced git stats update.
+     * Cancels any pending update and schedules a new one after the debounce delay.
+     */
+    private fun scheduleGitStatsUpdate() {
+        gitStatsUpdateAlarm.cancelAllRequests()
+        gitStatsUpdateAlarm.addRequest({
+            updateGitStats()
+        }, gitStatsDebounceMs)
+    }
+
+    /**
+     * Calculates the width needed to render a single git stat item (icon + number)
+     */
+    private fun calculateGitStatItemWidth(value: Int, metrics: FontMetrics): Int {
+        if (value == 0) return 0
+        val numberWidth = metrics.stringWidth(value.toString())
+        return gitStatsIconSize + gitStatsNumberSpacing + numberWidth
+    }
+
+    /**
+     * Calculates the total width needed for git stats indicator
+     * Returns 0 if no changes or feature disabled
+     */
+    private fun calculateGitStatsWidth(metrics: FontMetrics): Int {
+        val stats = currentGitStats ?: return 0
+        if (!stats.hasChanges()) return 0
+
+        var width = gitStatsSpacing // Initial spacing before "(..."
+
+        // Opening parenthesis
+        width += metrics.stringWidth("(")
+
+        var hasContent = false
+
+        // Added
+        if (stats.added > 0) {
+            width += calculateGitStatItemWidth(stats.added, metrics)
+            hasContent = true
+        }
+
+        // Removed
+        if (stats.removed > 0) {
+            if (hasContent) width += gitStatsItemSpacing
+            width += calculateGitStatItemWidth(stats.removed, metrics)
+            hasContent = true
+        }
+
+        // Modified
+        if (stats.modified > 0) {
+            if (hasContent) width += gitStatsItemSpacing
+            width += calculateGitStatItemWidth(stats.modified, metrics)
+        }
+
+        // Closing parenthesis
+        width += metrics.stringWidth(")")
+
+        return width
     }
 
     /**
@@ -548,13 +724,11 @@ class FilenameOverlay(
      * Calculates the preferred size based on text and icon dimensions
      */
     private fun calculatePreferredSize(): Dimension {
-        // Use italic font for size calculation if document is modified, to ensure enough space
         val baseFont = getBaseFont()
         val isModified = FileDocumentManager.getInstance().isDocumentUnsaved(editor.document)
-        val font = if (isModified) baseFont.deriveFont(Font.ITALIC) else baseFont
 
         // Use accurate Graphics2D-based font metrics for consistent measurements
-        val metrics = getAccurateFontMetrics(font)
+        val metrics = getAccurateFontMetrics(baseFont)
 
         // Use TextLayout for the most accurate text bounds calculation
         // This accounts for all rendering details including kerning, ligatures, etc.
@@ -562,9 +736,9 @@ class FilenameOverlay(
         val g2d = img.createGraphics()
         g2d.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON)
         g2d.setRenderingHint(RenderingHints.KEY_FRACTIONALMETRICS, RenderingHints.VALUE_FRACTIONALMETRICS_ON)
-        g2d.font = font
+        g2d.font = baseFont
 
-        val textLayout = java.awt.font.TextLayout(displayName, font, g2d.fontRenderContext)
+        val textLayout = java.awt.font.TextLayout(displayName, baseFont, g2d.fontRenderContext)
         val textBounds = textLayout.bounds
         g2d.dispose()
 
@@ -593,11 +767,14 @@ class FilenameOverlay(
         // Add text width
         calculatedWidth += textWidth
 
+        // Add git stats width if applicable
+        calculatedWidth += calculateGitStatsWidth(metrics)
+
         // Add right padding
         calculatedWidth += padding
 
         val height =
-            padding * 2 + maxOf(textHeight, iconHeight, if (isModified) modifiedDotSize else 0)
+            padding * 2 + maxOf(textHeight, iconHeight, if (isModified) modifiedDotSize else 0, gitStatsIconSize)
 
         return Dimension(calculatedWidth, height)
     }
@@ -674,13 +851,8 @@ class FilenameOverlay(
             currentX += scaledIcon.iconWidth + JBUI.scale(4)
         }
 
-        // Set font based on user settings, make it italic if document has unsaved changes
-        val baseFont = getBaseFont()
-        val font = if (isModified) {
-            baseFont.deriveFont(Font.ITALIC)
-        } else {
-            baseFont
-        }
+        // Set font based on user settings
+        val font = getBaseFont()
         g2d.font = font
 
         // Determine text color based on editor background brightness for optimal contrast
@@ -722,6 +894,57 @@ class FilenameOverlay(
         // This ensures consistent vertical centering regardless of font family/size
         g2d.color = getContrastingTextColor(editorBackground)
         g2d.drawString(displayName, textX, textY)
+
+        // Draw git stats indicator after the filename (if applicable)
+        val gitStats = currentGitStats
+        if (gitStats != null && gitStats.hasChanges()) {
+            var statsX = textX + textWidth + gitStatsSpacing
+
+            // Draw opening parenthesis
+            g2d.color = getContrastingTextColor(editorBackground)
+            g2d.drawString("(", statsX, textY)
+            statsX += metrics.stringWidth("(")
+
+            var hasDrawnItem = false
+
+            // Helper to draw a stat item (icon + number)
+            fun drawStatItem(value: Int, icon: Icon) {
+                if (value == 0) return
+                if (hasDrawnItem) {
+                    statsX += gitStatsItemSpacing
+                }
+
+                // Scale icon to match badge size
+                val scaledIcon = IconUtil.scale(icon, this@FilenameOverlay, gitStatsIconSize.toFloat() / icon.iconWidth.toFloat())
+                val iconY = (height - scaledIcon.iconHeight) / 2
+
+                // Draw the icon
+                scaledIcon.paintIcon(this@FilenameOverlay, g2d, statsX, iconY)
+
+                // Draw the number after the icon
+                statsX += scaledIcon.iconWidth + gitStatsNumberSpacing
+                g2d.color = getContrastingTextColor(editorBackground)
+                g2d.font = font
+                g2d.drawString(value.toString(), statsX, textY)
+                statsX += metrics.stringWidth(value.toString())
+
+                hasDrawnItem = true
+            }
+
+            // Draw each stat type with custom icons
+            // Green rounded square with + for additions
+            drawStatItem(gitStats.added, gitStatsAddedIcon)
+
+            // Red rounded square with - for deletions
+            drawStatItem(gitStats.removed, gitStatsRemovedIcon)
+
+            // Blue rounded square with dot for modifications
+            drawStatItem(gitStats.modified, gitStatsModifiedIcon)
+
+            // Draw closing parenthesis
+            g2d.color = getContrastingTextColor(editorBackground)
+            g2d.drawString(")", statsX, textY)
+        }
 
         // Draw gradient overlay to indicate scrollable content (if there's text behind the icon)
         // Hide gradient when hovering over text or when scrolled all the way to the left

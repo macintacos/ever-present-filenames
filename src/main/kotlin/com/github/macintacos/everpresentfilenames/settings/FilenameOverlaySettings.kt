@@ -47,6 +47,7 @@ class FilenameOverlaySettings : PersistentStateComponent<FilenameOverlaySettings
 
         // Behavior settings
         var enableProjectViewToggle: Boolean = true
+        var enableGitLineStats: Boolean = true
     }
 
     override fun getState(): State {
@@ -111,6 +112,14 @@ class FilenameOverlaySettings : PersistentStateComponent<FilenameOverlaySettings
 
     fun setProjectViewToggleEnabled(enabled: Boolean) {
         myState.enableProjectViewToggle = enabled
+    }
+
+    fun isGitLineStatsEnabled(): Boolean {
+        return myState.enableGitLineStats
+    }
+
+    fun setGitLineStatsEnabled(enabled: Boolean) {
+        myState.enableGitLineStats = enabled
     }
 
     companion object {

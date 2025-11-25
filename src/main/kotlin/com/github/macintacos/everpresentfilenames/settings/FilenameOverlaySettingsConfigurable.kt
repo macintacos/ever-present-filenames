@@ -25,6 +25,7 @@ class FilenameOverlaySettingsConfigurable : Configurable {
 
     // Behavior settings UI components
     private var projectViewToggleCheckbox: JCheckBox? = null
+    private var gitLineStatsCheckbox: JCheckBox? = null
 
     override fun getDisplayName(): String {
         return "Ever Present Filenames"
@@ -166,6 +167,12 @@ class FilenameOverlaySettingsConfigurable : Configurable {
         projectViewToggleCheckbox!!.isSelected = settings.isProjectViewToggleEnabled()
         settingsPanel!!.add(projectViewToggleCheckbox!!, gbc)
 
+        // Git line stats checkbox
+        gbc.gridy = 8
+        gitLineStatsCheckbox = JCheckBox("Show git line change statistics (+added / -removed)")
+        gitLineStatsCheckbox!!.isSelected = settings.isGitLineStatsEnabled()
+        settingsPanel!!.add(gitLineStatsCheckbox!!, gbc)
+
         return settingsPanel!!
     }
 
@@ -184,7 +191,8 @@ class FilenameOverlaySettingsConfigurable : Configurable {
                 currentFontSource != settings.getFontSource() ||
                 fontFamilyCombo!!.selectedItem as String != settings.getCustomFontFamily() ||
                 fontSizeSpinner!!.value as Int != settings.getFontSize() ||
-                projectViewToggleCheckbox!!.isSelected != settings.isProjectViewToggleEnabled()
+                projectViewToggleCheckbox!!.isSelected != settings.isProjectViewToggleEnabled() ||
+                gitLineStatsCheckbox!!.isSelected != settings.isGitLineStatsEnabled()
     }
 
     override fun apply() {
@@ -202,6 +210,7 @@ class FilenameOverlaySettingsConfigurable : Configurable {
         settings.setCustomFontFamily(fontFamilyCombo!!.selectedItem as String)
         settings.setFontSize(fontSizeSpinner!!.value as Int)
         settings.setProjectViewToggleEnabled(projectViewToggleCheckbox!!.isSelected)
+        settings.setGitLineStatsEnabled(gitLineStatsCheckbox!!.isSelected)
 
         // Notify all overlays that settings have changed
         com.intellij.openapi.application.ApplicationManager.getApplication().messageBus
@@ -231,5 +240,6 @@ class FilenameOverlaySettingsConfigurable : Configurable {
         fontFamilyCombo!!.isEnabled = fontSourceCombo!!.selectedIndex == 2
 
         projectViewToggleCheckbox!!.isSelected = settings.isProjectViewToggleEnabled()
+        gitLineStatsCheckbox!!.isSelected = settings.isGitLineStatsEnabled()
     }
 }
