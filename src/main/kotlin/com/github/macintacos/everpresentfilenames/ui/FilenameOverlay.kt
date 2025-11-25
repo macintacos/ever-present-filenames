@@ -22,6 +22,8 @@ import com.intellij.ide.projectView.ProjectView
 import git4idea.repo.GitRepository
 import git4idea.repo.GitRepositoryChangeListener
 import git4idea.repo.GitRepositoryManager
+import com.intellij.openapi.vcs.changes.ChangeListManager
+import com.intellij.openapi.vcs.changes.actions.diff.ShowDiffAction
 import com.intellij.util.Alarm
 import com.intellij.openapi.util.IconLoader
 import com.intellij.ui.JBColor
@@ -101,6 +103,8 @@ class FilenameOverlay(
     private var isHoveringIcon = false
     private var textBounds: Rectangle? = null
     private var isHoveringText = false
+    private var gitStatsBounds: Rectangle? = null
+    private var isHoveringGitStats = false
     private var scrollOffset = 0 // Horizontal scroll offset for the text
     private var maxScrollOffset = 0 // Maximum scroll offset
 
@@ -142,6 +146,9 @@ class FilenameOverlay(
                     // Check if click is on icon (which acts as close button)
                     if (iconBounds?.contains(e.point) == true) {
                         closeFile()
+                    } else if (gitStatsBounds?.contains(e.point) == true) {
+                        // Left click on git stats: Show diff view
+                        showFileDiff()
                     } else {
                         // Left click on filename area: Reveal file in Project view
                         revealInProjectView()
@@ -154,9 +161,10 @@ class FilenameOverlay(
 
             override fun mouseExited(e: MouseEvent) {
                 // Reset hover state when mouse leaves the component
-                if (isHoveringIcon || isHoveringText) {
+                if (isHoveringIcon || isHoveringText || isHoveringGitStats) {
                     isHoveringIcon = false
                     isHoveringText = false
+                    isHoveringGitStats = false
                     cursor = Cursor.getDefaultCursor()
                     repaint()
                 }
@@ -178,18 +186,23 @@ class FilenameOverlay(
             override fun mouseMoved(e: MouseEvent) {
                 val wasHoveringIcon = isHoveringIcon
                 val wasHoveringText = isHoveringText
+                val wasHoveringGitStats = isHoveringGitStats
 
                 isHoveringIcon = iconBounds?.contains(e.point) == true
+                isHoveringGitStats = gitStatsBounds?.contains(e.point) == true
                 isHoveringText = textBounds?.contains(e.point) == true
 
-                // Icon takes precedence over text
+                // Priority: icon > git stats > text
                 if (isHoveringIcon) {
+                    isHoveringGitStats = false
+                    isHoveringText = false
+                } else if (isHoveringGitStats) {
                     isHoveringText = false
                 }
 
-                if (wasHoveringIcon != isHoveringIcon || wasHoveringText != isHoveringText) {
+                if (wasHoveringIcon != isHoveringIcon || wasHoveringText != isHoveringText || wasHoveringGitStats != isHoveringGitStats) {
                     // Update cursor
-                    cursor = if (isHoveringIcon || isHoveringText) {
+                    cursor = if (isHoveringIcon || isHoveringText || isHoveringGitStats) {
                         Cursor.getPredefinedCursor(Cursor.HAND_CURSOR)
                     } else {
                         Cursor.getDefaultCursor()
@@ -271,6 +284,7 @@ class FilenameOverlay(
     override fun getToolTipText(event: MouseEvent?): String? {
         return when {
             isHoveringIcon -> "Close Tab"
+            isHoveringGitStats -> "Show Diff"
             isHoveringText -> "Reveal file in Project Outline"
             else -> null
         }
@@ -577,6 +591,29 @@ class FilenameOverlay(
             } else {
                 // No unsaved changes, close directly
                 fileEditorManager.closeFile(file)
+            }
+        }
+    }
+
+    /**
+     * Shows the diff view for the current file's changes
+     */
+    private fun showFileDiff() {
+        val project = editor.project ?: return
+
+        // Reset hover state immediately
+        isHoveringGitStats = false
+        cursor = Cursor.getDefaultCursor()
+        repaint()
+
+        ApplicationManager.getApplication().invokeLater {
+            // Get the change for this file from the ChangeListManager
+            val changeListManager = ChangeListManager.getInstance(project)
+            val change = changeListManager.getChange(file)
+
+            if (change != null) {
+                // Show the diff using the standard ShowDiffAction
+                ShowDiffAction.showDiffForChange(project, listOf(change))
             }
         }
     }
@@ -912,7 +949,28 @@ class FilenameOverlay(
         // Draw git stats indicator after the filename (if applicable)
         val gitStats = currentGitStats
         if (gitStats != null && gitStats.hasChanges()) {
-            var statsX = textX + textWidth + gitStatsSpacing
+            val statsStartX = textX + textWidth + gitStatsSpacing
+            var statsX = statsStartX
+
+            // Calculate the total width for hover highlight (need to pre-calculate)
+            val statsWidth = calculateGitStatsWidth(metrics)
+
+            // Draw hover highlight on git stats if hovering
+            if (isHoveringGitStats) {
+                val highlightPadding = JBUI.scale(2)
+                g2d.color = getContrastingTextColor(editorBackground).let { textColor ->
+                    @Suppress("UseJBColor")
+                    Color(textColor.red, textColor.green, textColor.blue, 40)
+                }
+                g2d.fillRoundRect(
+                    statsStartX - highlightPadding,
+                    (height - textHeight) / 2 - highlightPadding,
+                    statsWidth + highlightPadding * 2,
+                    textHeight + highlightPadding * 2,
+                    JBUI.scale(4),
+                    JBUI.scale(4)
+                )
+            }
 
             // Draw opening parenthesis
             g2d.color = getContrastingTextColor(editorBackground)
@@ -958,6 +1016,13 @@ class FilenameOverlay(
             // Draw closing parenthesis
             g2d.color = getContrastingTextColor(editorBackground)
             g2d.drawString(")", statsX, textY)
+            statsX += metrics.stringWidth(")")
+
+            // Store git stats bounds for click detection
+            gitStatsBounds = Rectangle(statsStartX, (height - textHeight) / 2, statsX - statsStartX, textHeight)
+        } else {
+            // No git stats to show, clear bounds
+            gitStatsBounds = null
         }
 
         // Draw gradient overlay to indicate scrollable content (if there's text behind the icon)
