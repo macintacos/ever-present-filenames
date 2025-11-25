@@ -2,6 +2,12 @@
 
 # Changelog
 
+## [0.5.1] - 2025-11-25
+### Added
+- Untracked file indicator: yellow "?" icon shown for files not yet added to git
+- Click on untracked file indicator opens diff view showing entire file as new content
+- Tooltip shows "Show Diff (Currently Untracked)" for untracked files
+
 ## [0.5.0] - 2025-11-25
 ### Added
 - Git line change statistics: displays added/removed line counts next to filename for files with uncommitted changes
