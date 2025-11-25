@@ -2,6 +2,19 @@
 
 # Changelog
 
+## [0.5.0] - 2025-11-25
+### Added
+- Git line change statistics: displays added/removed line counts next to filename for files with uncommitted changes
+- Click on git stats to open diff view for the file (same as double-clicking in Commit view)
+- New setting to enable/disable git line stats display (enabled by default)
+- Automatic git stats refresh on file save, git commits, and repository changes
+
+### Changed
+- Removed italic text styling for unsaved files (blue dot indicator is sufficient)
+
+### Fixed
+- Settings changes now immediately update the UI for git stats toggle
+
 ## [0.4.0] - 2025-11-24
 ### Added
 - Project view toggle behavior: clicking the same filename twice now closes the Project view instead of re-revealing it
