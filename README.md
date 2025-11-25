@@ -20,13 +20,14 @@ editor view, even when that editor does not have focus.
 
 ## Features
 
-- Smart duplicate filename handling: shows distinguishing paths when multiple files with the same
-  name are open
-- Blue dot indicator and italic text when file has unsaved changes
-- Close files directly from the filename overlap by clicking on the file icon.
-- Customize the focused border color and font choices to fit in with your editor.
-- Left click on filename to reveal file in Project view
-- Right click for context menu with options to copy file name, relative path, or absolute path
+- Show the filename for each visible "split" in the IDE, even when tabs have been disabled.
+- Smart duplicate filename handling: shows distinguishing paths when multiple files with the same name are open
+- The UI shows when there are pending unsaved changes, as well as how many lines have been added / removed based on `git diff --numstat HEAD`.
+- Take the following actions using just your mouse:
+  - Click on the file icon to close the file.
+  - Click on the filename itself to reveal the file in the Project Outline
+  - Click on the numbered diff to open the diff view for that file
+  - Right-click on the filename to copy the path to the file
 
 ## Configuration
 
@@ -56,5 +57,3 @@ Go to "Appearance" > "Ever Present Filenames" to edit the appearance of the over
 Plugin based on the [IntelliJ Platform Plugin Template][template].
 
 [template]: https://github.com/JetBrains/intellij-platform-plugin-template
-
-[docs:plugin-description]: https://plugins.jetbrains.com/docs/intellij/plugin-user-experience.html#plugin-description-and-presentation
