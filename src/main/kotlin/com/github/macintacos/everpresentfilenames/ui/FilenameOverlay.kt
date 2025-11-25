@@ -19,6 +19,8 @@ import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.openapi.vfs.VfsUtil
 import com.intellij.openapi.wm.ToolWindowManager
 import com.intellij.ide.projectView.ProjectView
+import git4idea.repo.GitRepository
+import git4idea.repo.GitRepositoryChangeListener
 import git4idea.repo.GitRepositoryManager
 import com.intellij.util.Alarm
 import com.intellij.openapi.util.IconLoader
@@ -240,6 +242,18 @@ class FilenameOverlay(
         }
         ApplicationManager.getApplication().messageBus.connect(this)
             .subscribe(SettingsChangeListener.TOPIC, settingsListener)
+
+        // Listen for git repository changes (commits, pulls, etc.) to update git stats
+        editor.project?.messageBus?.connect(this)?.subscribe(
+            GitRepository.GIT_REPO_CHANGE,
+            GitRepositoryChangeListener { repository ->
+                // Check if this change affects our file's repository
+                val fileRepo = GitRepositoryManager.getInstance(editor.project!!).getRepositoryForFile(file)
+                if (fileRepo == repository) {
+                    scheduleGitStatsUpdate()
+                }
+            }
+        )
     }
 
     /**
