@@ -9,14 +9,11 @@ Displays the current file name at the bottom-right corner of the editor.
 
 ## Why?
 
-I don't like tabs, so I [disable them](https://www.jetbrains.com/guide/go/tips/disable-tabs/) via
-the `Tab placement | None` settings toggle. However, when you do this, and you also
-use [split editor windows](https://www.jetbrains.com/help/idea/using-code-editor.html#split_screen),
-JetBrains IDEs do not tell you what file is currently open in a given split unless that split
-currently has focus.
+I don't like tabs, so I [disable them](https://www.jetbrains.com/guide/go/tips/disable-tabs/) via the `Tab placement | None` settings toggle. However, when you do this, and you also use [split editor windows](https://www.jetbrains.com/help/idea/using-code-editor.html#split_screen), JetBrains IDEs do not tell you what file is currently open in a given split unless that split currently has focus.
 
-This completely resolves this problem by always showing you the filename at the bottom right of the
-editor view, even when that editor does not have focus.
+This completely resolves this problem by always showing you the filename at the bottom right of the editor view, even when that editor does not have focus.
+
+Basically - I made this [because this issue never got traction](https://youtrack.jetbrains.com/issue/PY-78087/With-Editor-Tabs-set-to-None-there-is-no-good-way-to-see-the-names-of-all-files-in-all-splits).
 
 ## Features
 
@@ -31,7 +28,7 @@ editor view, even when that editor does not have focus.
 
 ## Configuration
 
-Go to "Appearance" > "Ever Present Filenames" to edit the appearance of the overlay.
+Go to "Appearance" > "Ever Present Filenames" to edit the settings for the plugin.
 <!-- Plugin description end -->
 
 ## Installation
