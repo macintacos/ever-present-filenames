@@ -27,6 +27,15 @@ class FilenameOverlaySettingsConfigurable : Configurable {
     private var projectViewToggleCheckbox: JCheckBox? = null
     private var gitLineStatsCheckbox: JCheckBox? = null
 
+    // Position settings UI components
+    private var positionButtonGroup: ButtonGroup? = null
+    private var topLeftRadio: JRadioButton? = null
+    private var topRightRadio: JRadioButton? = null
+    private var bottomLeftRadio: JRadioButton? = null
+    private var bottomRightRadio: JRadioButton? = null
+    private var horizontalMarginSpinner: JSpinner? = null
+    private var verticalMarginSpinner: JSpinner? = null
+
     override fun getDisplayName(): String {
         return "Ever Present Filenames"
     }
@@ -37,13 +46,232 @@ class FilenameOverlaySettingsConfigurable : Configurable {
         darkModeColor = settings.getFocusedBorderColorDark()
 
         settingsPanel = JPanel(GridBagLayout())
-        val gbc = GridBagConstraints()
+        val gbc = GridBagConstraints().apply {
+            gridx = 0
+            gridy = 0
+            anchor = GridBagConstraints.WEST
+            insets = JBUI.insets(5)
+        }
+
+        // Position settings section
+        createPositionSection(settings, gbc)
+
+        // Color settings section
+        gbc.gridy++
+        createColorSection(gbc)
+
+        // Font settings section
+        gbc.gridy++
+        createFontSection(settings, gbc)
+
+        // Behavior settings section
+        gbc.gridy++
+        createBehaviorSection(settings, gbc)
+
+        return settingsPanel!!
+    }
+
+    private fun createSectionHeader(title: String, gbc: GridBagConstraints) {
         gbc.gridx = 0
-        gbc.gridy = 0
-        gbc.anchor = GridBagConstraints.WEST
+        gbc.gridwidth = 2
+        gbc.fill = GridBagConstraints.HORIZONTAL
+        gbc.weightx = 1.0
+        gbc.insets = JBUI.insets(20, 5, 5, 5)
+
+        val headerPanel = JPanel(GridBagLayout())
+        val headerGbc = GridBagConstraints().apply {
+            gridx = 0
+            gridy = 0
+            anchor = GridBagConstraints.WEST
+            fill = GridBagConstraints.HORIZONTAL
+            weightx = 1.0
+        }
+
+        val label = JBLabel(title)
+        label.font = label.font.deriveFont(java.awt.Font.BOLD)
+        headerPanel.add(label, headerGbc)
+
+        headerGbc.gridy = 1
+        headerGbc.insets = JBUI.insets(5, 0, 0, 0)
+        val separator = JSeparator(SwingConstants.HORIZONTAL)
+        headerPanel.add(separator, headerGbc)
+
+        settingsPanel!!.add(headerPanel, gbc)
+
+        // Reset fill and weightx for subsequent components
+        gbc.fill = GridBagConstraints.NONE
+        gbc.weightx = 0.0
+    }
+
+    private fun createPositionSection(settings: FilenameOverlaySettings, gbc: GridBagConstraints) {
+        createSectionHeader("Position Settings", gbc)
+
+        // Position selector - visual grid with radio buttons at corners
+        gbc.gridy++
+        gbc.gridwidth = 2
         gbc.insets = JBUI.insets(5)
+        gbc.fill = GridBagConstraints.NONE
+        gbc.anchor = GridBagConstraints.WEST
+
+        val positionPanel = JPanel(GridBagLayout())
+        positionPanel.border = BorderFactory.createTitledBorder("Overlay Position")
+
+        // Create corner panel with radio buttons
+        val cornerPanel = createCornerPanel()
+
+        // Add corner panel to position panel (left side)
+        val posGbc = GridBagConstraints().apply {
+            gridx = 0
+            gridy = 0
+            gridheight = 2
+            insets = JBUI.insets(10)
+            anchor = GridBagConstraints.NORTHWEST
+        }
+        positionPanel.add(cornerPanel, posGbc)
+
+        // Margin settings panel (right side of corner panel)
+        val marginPanel = createMarginPanel()
+
+        // Add margin panel to position panel (right of corner panel)
+        posGbc.apply {
+            gridx = 1
+            gridy = 0
+            gridheight = 1
+            anchor = GridBagConstraints.NORTHWEST
+            insets = JBUI.insets(10, 20, 10, 10)
+        }
+        positionPanel.add(marginPanel, posGbc)
+
+        settingsPanel!!.add(positionPanel, gbc)
+
+        // Helper text explaining margin behavior
+        gbc.gridy++
+        gbc.gridwidth = 2
+        gbc.insets = JBUI.insets(2, 10, 5, 5)
+        val helperText = JBLabel("Margins are applied from the closest edges of the editor based on the chosen position.")
+        helperText.foreground = JBColor.gray
+        helperText.font = helperText.font.deriveFont(helperText.font.size2D - 1f)
+        settingsPanel!!.add(helperText, gbc)
+
+        // Load current position settings
+        when (settings.getOverlayPosition()) {
+            OverlayPosition.TOP_LEFT -> topLeftRadio!!.isSelected = true
+            OverlayPosition.TOP_RIGHT -> topRightRadio!!.isSelected = true
+            OverlayPosition.BOTTOM_LEFT -> bottomLeftRadio!!.isSelected = true
+            OverlayPosition.BOTTOM_RIGHT -> bottomRightRadio!!.isSelected = true
+        }
+        horizontalMarginSpinner!!.value = settings.getHorizontalMargin()
+        verticalMarginSpinner!!.value = settings.getVerticalMargin()
+    }
+
+    private fun createCornerPanel(): JPanel {
+        val cornerPanel = JPanel(GridBagLayout())
+        cornerPanel.preferredSize = java.awt.Dimension(200, 120)
+        cornerPanel.border = BorderFactory.createLineBorder(JBColor.border(), 2)
+        cornerPanel.background = JBColor.background()
+
+        val cornerGbc = GridBagConstraints()
+
+        // Create radio buttons for each corner
+        positionButtonGroup = ButtonGroup()
+        topLeftRadio = JRadioButton()
+        topRightRadio = JRadioButton()
+        bottomLeftRadio = JRadioButton()
+        bottomRightRadio = JRadioButton()
+
+        positionButtonGroup!!.add(topLeftRadio)
+        positionButtonGroup!!.add(topRightRadio)
+        positionButtonGroup!!.add(bottomLeftRadio)
+        positionButtonGroup!!.add(bottomRightRadio)
+
+        // Top-left corner
+        cornerGbc.apply {
+            gridx = 0
+            gridy = 0
+            weightx = 0.0
+            weighty = 0.0
+            anchor = GridBagConstraints.NORTHWEST
+            insets = JBUI.insets(5)
+        }
+        cornerPanel.add(topLeftRadio, cornerGbc)
+
+        // Top-right corner
+        cornerGbc.apply {
+            gridx = 2
+            anchor = GridBagConstraints.NORTHEAST
+        }
+        cornerPanel.add(topRightRadio, cornerGbc)
+
+        // Center filler
+        cornerGbc.apply {
+            gridx = 1
+            gridy = 1
+            weightx = 1.0
+            weighty = 1.0
+            fill = GridBagConstraints.BOTH
+        }
+        val centerLabel = JBLabel("Editor", SwingConstants.CENTER)
+        centerLabel.foreground = JBColor.gray
+        cornerPanel.add(centerLabel, cornerGbc)
+
+        // Bottom-left corner
+        cornerGbc.apply {
+            gridx = 0
+            gridy = 2
+            weightx = 0.0
+            weighty = 0.0
+            fill = GridBagConstraints.NONE
+            anchor = GridBagConstraints.SOUTHWEST
+        }
+        cornerPanel.add(bottomLeftRadio, cornerGbc)
+
+        // Bottom-right corner
+        cornerGbc.apply {
+            gridx = 2
+            anchor = GridBagConstraints.SOUTHEAST
+        }
+        cornerPanel.add(bottomRightRadio, cornerGbc)
+
+        return cornerPanel
+    }
+
+    private fun createMarginPanel(): JPanel {
+        val marginPanel = JPanel(GridBagLayout())
+        val marginGbc = GridBagConstraints().apply {
+            gridx = 0
+            gridy = 0
+            anchor = GridBagConstraints.WEST
+            insets = JBUI.insets(5)
+        }
+
+        marginPanel.add(JBLabel("Horizontal margin:"), marginGbc)
+
+        marginGbc.gridx = 1
+        val hMarginModel = SpinnerNumberModel(20, 0, 200, 5)
+        horizontalMarginSpinner = JSpinner(hMarginModel)
+        marginPanel.add(horizontalMarginSpinner, marginGbc)
+
+        marginGbc.apply {
+            gridx = 0
+            gridy = 1
+        }
+        marginPanel.add(JBLabel("Vertical margin:"), marginGbc)
+
+        marginGbc.gridx = 1
+        val vMarginModel = SpinnerNumberModel(20, 0, 200, 5)
+        verticalMarginSpinner = JSpinner(vMarginModel)
+        marginPanel.add(verticalMarginSpinner, marginGbc)
+
+        return marginPanel
+    }
+
+    private fun createColorSection(gbc: GridBagConstraints) {
+        createSectionHeader("Color Settings", gbc)
 
         // Light mode color picker
+        gbc.gridy++
+        gbc.gridwidth = 1
+        gbc.insets = JBUI.insets(5)
         val lightModeLabel = JBLabel("Focused border color (Light mode):")
         settingsPanel!!.add(lightModeLabel, gbc)
 
@@ -65,7 +293,7 @@ class FilenameOverlaySettingsConfigurable : Configurable {
 
         // Dark mode color picker
         gbc.gridx = 0
-        gbc.gridy = 1
+        gbc.gridy++
         val darkModeLabel = JBLabel("Focused border color (Dark mode):")
         settingsPanel!!.add(darkModeLabel, gbc)
 
@@ -84,18 +312,14 @@ class FilenameOverlaySettingsConfigurable : Configurable {
             }
         }
         settingsPanel!!.add(darkModeColorButton!!, gbc)
+    }
 
-        // Font settings section
-        gbc.gridx = 0
-        gbc.gridy = 2
-        gbc.gridwidth = 2
-        gbc.insets = JBUI.insets(20, 5, 5, 5)
-        val fontSectionLabel = JBLabel("Font Settings")
-        fontSectionLabel.font = fontSectionLabel.font.deriveFont(java.awt.Font.BOLD)
-        settingsPanel!!.add(fontSectionLabel, gbc)
+    private fun createFontSection(settings: FilenameOverlaySettings, gbc: GridBagConstraints) {
+        createSectionHeader("Font Settings", gbc)
 
         // Font source combo box
-        gbc.gridy = 3
+        gbc.gridy++
+        gbc.gridx = 0
         gbc.gridwidth = 1
         gbc.insets = JBUI.insets(5)
         val fontSourceLabel = JBLabel("Font source:")
@@ -108,7 +332,7 @@ class FilenameOverlaySettingsConfigurable : Configurable {
 
         // Font family combo box
         gbc.gridx = 0
-        gbc.gridy = 4
+        gbc.gridy++
         val fontFamilyLabel = JBLabel("Font family:")
         settingsPanel!!.add(fontFamilyLabel, gbc)
 
@@ -120,7 +344,7 @@ class FilenameOverlaySettingsConfigurable : Configurable {
 
         // Font size spinner
         gbc.gridx = 0
-        gbc.gridy = 5
+        gbc.gridy++
         val fontSizeLabel = JBLabel("Font size:")
         settingsPanel!!.add(fontSizeLabel, gbc)
 
@@ -149,18 +373,14 @@ class FilenameOverlaySettingsConfigurable : Configurable {
 
         fontSizeSpinner!!.value = settings.getFontSize()
         updateFontComboState()
+    }
 
-        // Behavior settings section
-        gbc.gridx = 0
-        gbc.gridy = 6
-        gbc.gridwidth = 2
-        gbc.insets = JBUI.insets(20, 5, 5, 5)
-        val behaviorSectionLabel = JBLabel("Behavior Settings")
-        behaviorSectionLabel.font = behaviorSectionLabel.font.deriveFont(java.awt.Font.BOLD)
-        settingsPanel!!.add(behaviorSectionLabel, gbc)
+    private fun createBehaviorSection(settings: FilenameOverlaySettings, gbc: GridBagConstraints) {
+        createSectionHeader("Behavior Settings", gbc)
 
         // Project view toggle checkbox
-        gbc.gridy = 7
+        gbc.gridy++
+        gbc.gridx = 0
         gbc.gridwidth = 2
         gbc.insets = JBUI.insets(5)
         projectViewToggleCheckbox = JCheckBox("Enable Project view toggle (click filename to close if already revealed)")
@@ -168,12 +388,10 @@ class FilenameOverlaySettingsConfigurable : Configurable {
         settingsPanel!!.add(projectViewToggleCheckbox!!, gbc)
 
         // Git line stats checkbox
-        gbc.gridy = 8
+        gbc.gridy++
         gitLineStatsCheckbox = JCheckBox("Show git line change statistics (+added / -removed)")
         gitLineStatsCheckbox!!.isSelected = settings.isGitLineStatsEnabled()
         settingsPanel!!.add(gitLineStatsCheckbox!!, gbc)
-
-        return settingsPanel!!
     }
 
     override fun isModified(): Boolean {
@@ -186,13 +404,23 @@ class FilenameOverlaySettingsConfigurable : Configurable {
             else -> FontSource.UI_FONT
         }
 
+        val currentPosition = when {
+            topLeftRadio!!.isSelected -> OverlayPosition.TOP_LEFT
+            topRightRadio!!.isSelected -> OverlayPosition.TOP_RIGHT
+            bottomLeftRadio!!.isSelected -> OverlayPosition.BOTTOM_LEFT
+            else -> OverlayPosition.BOTTOM_RIGHT
+        }
+
         return lightModeColor != settings.getFocusedBorderColorLight() ||
                 darkModeColor != settings.getFocusedBorderColorDark() ||
                 currentFontSource != settings.getFontSource() ||
                 fontFamilyCombo!!.selectedItem as String != settings.getCustomFontFamily() ||
                 fontSizeSpinner!!.value as Int != settings.getFontSize() ||
                 projectViewToggleCheckbox!!.isSelected != settings.isProjectViewToggleEnabled() ||
-                gitLineStatsCheckbox!!.isSelected != settings.isGitLineStatsEnabled()
+                gitLineStatsCheckbox!!.isSelected != settings.isGitLineStatsEnabled() ||
+                currentPosition != settings.getOverlayPosition() ||
+                horizontalMarginSpinner!!.value as Int != settings.getHorizontalMargin() ||
+                verticalMarginSpinner!!.value as Int != settings.getVerticalMargin()
     }
 
     override fun apply() {
@@ -211,6 +439,17 @@ class FilenameOverlaySettingsConfigurable : Configurable {
         settings.setFontSize(fontSizeSpinner!!.value as Int)
         settings.setProjectViewToggleEnabled(projectViewToggleCheckbox!!.isSelected)
         settings.setGitLineStatsEnabled(gitLineStatsCheckbox!!.isSelected)
+
+        // Save position settings
+        val position = when {
+            topLeftRadio!!.isSelected -> OverlayPosition.TOP_LEFT
+            topRightRadio!!.isSelected -> OverlayPosition.TOP_RIGHT
+            bottomLeftRadio!!.isSelected -> OverlayPosition.BOTTOM_LEFT
+            else -> OverlayPosition.BOTTOM_RIGHT
+        }
+        settings.setOverlayPosition(position)
+        settings.setHorizontalMargin(horizontalMarginSpinner!!.value as Int)
+        settings.setVerticalMargin(verticalMarginSpinner!!.value as Int)
 
         // Notify all overlays that settings have changed
         com.intellij.openapi.application.ApplicationManager.getApplication().messageBus
@@ -241,5 +480,15 @@ class FilenameOverlaySettingsConfigurable : Configurable {
 
         projectViewToggleCheckbox!!.isSelected = settings.isProjectViewToggleEnabled()
         gitLineStatsCheckbox!!.isSelected = settings.isGitLineStatsEnabled()
+
+        // Reset position settings
+        when (settings.getOverlayPosition()) {
+            OverlayPosition.TOP_LEFT -> topLeftRadio!!.isSelected = true
+            OverlayPosition.TOP_RIGHT -> topRightRadio!!.isSelected = true
+            OverlayPosition.BOTTOM_LEFT -> bottomLeftRadio!!.isSelected = true
+            OverlayPosition.BOTTOM_RIGHT -> bottomRightRadio!!.isSelected = true
+        }
+        horizontalMarginSpinner!!.value = settings.getHorizontalMargin()
+        verticalMarginSpinner!!.value = settings.getVerticalMargin()
     }
 }

@@ -14,6 +14,13 @@ enum class FontSource {
     CUSTOM_FONT
 }
 
+enum class OverlayPosition {
+    TOP_LEFT,
+    TOP_RIGHT,
+    BOTTOM_LEFT,
+    BOTTOM_RIGHT
+}
+
 interface SettingsChangeListener {
     fun settingsChanged()
 
@@ -48,6 +55,11 @@ class FilenameOverlaySettings : PersistentStateComponent<FilenameOverlaySettings
         // Behavior settings
         var enableProjectViewToggle: Boolean = true
         var enableGitLineStats: Boolean = true
+
+        // Position settings
+        var overlayPosition: String = OverlayPosition.BOTTOM_RIGHT.name
+        var horizontalMargin: Int = 20
+        var verticalMargin: Int = 20
     }
 
     override fun getState(): State {
@@ -120,6 +132,34 @@ class FilenameOverlaySettings : PersistentStateComponent<FilenameOverlaySettings
 
     fun setGitLineStatsEnabled(enabled: Boolean) {
         myState.enableGitLineStats = enabled
+    }
+
+    fun getOverlayPosition(): OverlayPosition {
+        return try {
+            OverlayPosition.valueOf(myState.overlayPosition)
+        } catch (e: IllegalArgumentException) {
+            OverlayPosition.BOTTOM_RIGHT
+        }
+    }
+
+    fun setOverlayPosition(position: OverlayPosition) {
+        myState.overlayPosition = position.name
+    }
+
+    fun getHorizontalMargin(): Int {
+        return myState.horizontalMargin
+    }
+
+    fun setHorizontalMargin(margin: Int) {
+        myState.horizontalMargin = margin
+    }
+
+    fun getVerticalMargin(): Int {
+        return myState.verticalMargin
+    }
+
+    fun setVerticalMargin(margin: Int) {
+        myState.verticalMargin = margin
     }
 
     companion object {

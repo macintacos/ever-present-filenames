@@ -2,6 +2,7 @@ package com.github.macintacos.everpresentfilenames.ui
 
 import com.github.macintacos.everpresentfilenames.settings.FilenameOverlaySettings
 import com.github.macintacos.everpresentfilenames.settings.FontSource
+import com.github.macintacos.everpresentfilenames.settings.OverlayPosition
 import com.github.macintacos.everpresentfilenames.settings.SettingsChangeListener
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.editor.Editor
@@ -87,7 +88,6 @@ class FilenameOverlay(
 
     private val padding = JBUI.scale(5)
     private val cornerRadius = JBUI.scale(8)
-    private val margin = JBUI.scale(20) // Distance from the edge of the editor
     private val modifiedDotSize =
         JBUI.scale(6) // Size of the blue dot indicator for unsaved changes
     private val modifiedDotSpacing = JBUI.scale(4) // Space between dot and icon
@@ -769,38 +769,70 @@ class FilenameOverlay(
     }
 
     /**
-     * Updates the position and size of the overlay to stick to the bottom-right corner
+     * Updates the position and size of the overlay based on settings
      */
     private fun updatePosition() {
         val preferredSize = calculatePreferredSize()
         val visibleArea = editor.scrollingModel.visibleArea
+        val settings = FilenameOverlaySettings.getInstance()
 
-        // Position at bottom-right of the visible area with margin
-        var x = visibleArea.x + visibleArea.width - preferredSize.width - margin
-        val y = visibleArea.y + visibleArea.height - preferredSize.height - margin
+        val position = settings.getOverlayPosition()
+        val hMargin = JBUI.scale(settings.getHorizontalMargin())
+        val vMargin = JBUI.scale(settings.getVerticalMargin())
 
-        // Check if the overlay extends beyond the left edge of the visible area
-        val leftEdge = visibleArea.x + margin
-        val rightEdge = visibleArea.x + visibleArea.width - margin
+        // Calculate position based on selected corner
+        var x: Int
+        var y: Int
+
+        when (position) {
+            OverlayPosition.TOP_LEFT -> {
+                x = visibleArea.x + hMargin
+                y = visibleArea.y + vMargin
+            }
+            OverlayPosition.TOP_RIGHT -> {
+                x = visibleArea.x + visibleArea.width - preferredSize.width - hMargin
+                y = visibleArea.y + vMargin
+            }
+            OverlayPosition.BOTTOM_LEFT -> {
+                x = visibleArea.x + hMargin
+                y = visibleArea.y + visibleArea.height - preferredSize.height - vMargin
+            }
+            OverlayPosition.BOTTOM_RIGHT -> {
+                x = visibleArea.x + visibleArea.width - preferredSize.width - hMargin
+                y = visibleArea.y + visibleArea.height - preferredSize.height - vMargin
+            }
+        }
+
+        // Calculate edges for overflow handling
+        val leftEdge = visibleArea.x + hMargin
+        val rightEdge = visibleArea.x + visibleArea.width - hMargin
 
         var actualWidth = preferredSize.width
 
-        if (x < leftEdge) {
-            // Overlay doesn't fit, need to clamp and enable scrolling
-            // Calculate the maximum width that fits in the visible area
-            val maxWidth = rightEdge - leftEdge
-            actualWidth = minOf(preferredSize.width, maxWidth)
-
-            // Calculate how much we need to scroll
-            maxScrollOffset = preferredSize.width - actualWidth
-            x = leftEdge // Clamp to left edge
-
-            // Start scrolled all the way to the right (showing the filename, not the path)
-            scrollOffset = maxScrollOffset
+        // Handle overflow for right-aligned positions
+        if (position == OverlayPosition.TOP_RIGHT || position == OverlayPosition.BOTTOM_RIGHT) {
+            if (x < leftEdge) {
+                // Overlay doesn't fit, need to clamp and enable scrolling
+                val maxWidth = rightEdge - leftEdge
+                actualWidth = minOf(preferredSize.width, maxWidth)
+                maxScrollOffset = preferredSize.width - actualWidth
+                x = leftEdge
+                scrollOffset = maxScrollOffset
+            } else {
+                maxScrollOffset = 0
+                scrollOffset = 0
+            }
         } else {
-            // Overlay fits, no scrolling needed
-            maxScrollOffset = 0
-            scrollOffset = 0
+            // Handle overflow for left-aligned positions
+            if (x + preferredSize.width > rightEdge) {
+                val maxWidth = rightEdge - leftEdge
+                actualWidth = minOf(preferredSize.width, maxWidth)
+                maxScrollOffset = preferredSize.width - actualWidth
+                scrollOffset = 0 // Start at beginning for left-aligned
+            } else {
+                maxScrollOffset = 0
+                scrollOffset = 0
+            }
         }
 
         // Set both bounds and size to ensure the component actually resizes
