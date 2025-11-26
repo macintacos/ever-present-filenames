@@ -72,7 +72,9 @@ data class GitLineStats(
 class FilenameOverlay(
     private val editor: Editor,
     private val file: VirtualFile,
-    private val icon: Icon?
+    private val icon: Icon?,
+    private val showGitStats: Boolean = true,
+    private val isDiffMode: Boolean = false
 ) : JComponent(), Disposable {
 
     companion object {
@@ -101,6 +103,11 @@ class FilenameOverlay(
     private val gitStatsDebounceMs = 500 // Debounce delay in milliseconds
     private var isEditorFocused = false
     private var displayName: String = file.name
+
+    // Effective display name includes diff suffix if in diff mode
+    private val effectiveDisplayName: String
+        get() = if (isDiffMode) "$displayName (DIFF)" else displayName
+
     private var iconBounds: Rectangle? = null
     private var isHoveringIcon = false
     private var textBounds: Rectangle? = null
@@ -505,6 +512,9 @@ class FilenameOverlay(
      * Returns 0 if no changes or feature disabled
      */
     private fun calculateGitStatsWidth(metrics: FontMetrics): Int {
+        // Don't show git stats if disabled for this overlay
+        if (!showGitStats) return 0
+
         val stats = currentGitStats ?: return 0
         if (!stats.hasChanges()) return 0
 
@@ -860,7 +870,7 @@ class FilenameOverlay(
         g2d.setRenderingHint(RenderingHints.KEY_FRACTIONALMETRICS, RenderingHints.VALUE_FRACTIONALMETRICS_ON)
         g2d.font = baseFont
 
-        val textLayout = java.awt.font.TextLayout(displayName, baseFont, g2d.fontRenderContext)
+        val textLayout = java.awt.font.TextLayout(effectiveDisplayName, baseFont, g2d.fontRenderContext)
         val textBounds = textLayout.bounds
         g2d.dispose()
 
@@ -984,7 +994,7 @@ class FilenameOverlay(
         val metrics = getAccurateFontMetrics(font)
 
         // Calculate text bounds for hover detection
-        val textLayout = java.awt.font.TextLayout(displayName, font, g2d.fontRenderContext)
+        val textLayout = java.awt.font.TextLayout(effectiveDisplayName, font, g2d.fontRenderContext)
         val textWidth = kotlin.math.ceil(textLayout.advance).toInt()
         val textHeight = metrics.ascent + metrics.descent
 
@@ -1015,11 +1025,11 @@ class FilenameOverlay(
         // Draw filename text - properly center vertically using actual text bounds (not line height)
         // This ensures consistent vertical centering regardless of font family/size
         g2d.color = getContrastingTextColor(editorBackground)
-        g2d.drawString(displayName, textX, textY)
+        g2d.drawString(effectiveDisplayName, textX, textY)
 
-        // Draw git stats indicator after the filename (if applicable)
+        // Draw git stats indicator after the filename (if applicable and enabled)
         val gitStats = currentGitStats
-        if (gitStats != null && gitStats.hasChanges()) {
+        if (showGitStats && gitStats != null && gitStats.hasChanges()) {
             val statsStartX = textX + textWidth + gitStatsSpacing
             var statsX = statsStartX
 
