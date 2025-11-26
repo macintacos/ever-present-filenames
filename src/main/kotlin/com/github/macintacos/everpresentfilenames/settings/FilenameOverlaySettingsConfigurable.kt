@@ -11,7 +11,6 @@ import java.awt.GridBagLayout
 import javax.swing.*
 
 class FilenameOverlaySettingsConfigurable : Configurable {
-
     private var settingsPanel: JPanel? = null
     private var lightModeColorButton: JButton? = null
     private var darkModeColorButton: JButton? = null
@@ -37,9 +36,7 @@ class FilenameOverlaySettingsConfigurable : Configurable {
     private var verticalMarginSpinner: JSpinner? = null
     private var stickyLinesWarningLabel: JLabel? = null
 
-    override fun getDisplayName(): String {
-        return "Ever Present Filenames"
-    }
+    override fun getDisplayName(): String = "Ever Present Filenames"
 
     override fun createComponent(): JComponent {
         val settings = FilenameOverlaySettings.getInstance()
@@ -47,12 +44,13 @@ class FilenameOverlaySettingsConfigurable : Configurable {
         darkModeColor = settings.getFocusedBorderColorDark()
 
         settingsPanel = JPanel(GridBagLayout())
-        val gbc = GridBagConstraints().apply {
-            gridx = 0
-            gridy = 0
-            anchor = GridBagConstraints.WEST
-            insets = JBUI.insets(5)
-        }
+        val gbc =
+            GridBagConstraints().apply {
+                gridx = 0
+                gridy = 0
+                anchor = GridBagConstraints.WEST
+                insets = JBUI.insets(5)
+            }
 
         // Position settings section
         createPositionSection(settings, gbc)
@@ -72,7 +70,10 @@ class FilenameOverlaySettingsConfigurable : Configurable {
         return settingsPanel!!
     }
 
-    private fun createSectionHeader(title: String, gbc: GridBagConstraints) {
+    private fun createSectionHeader(
+        title: String,
+        gbc: GridBagConstraints,
+    ) {
         gbc.gridx = 0
         gbc.gridwidth = 2
         gbc.fill = GridBagConstraints.HORIZONTAL
@@ -80,13 +81,14 @@ class FilenameOverlaySettingsConfigurable : Configurable {
         gbc.insets = JBUI.insets(20, 5, 5, 5)
 
         val headerPanel = JPanel(GridBagLayout())
-        val headerGbc = GridBagConstraints().apply {
-            gridx = 0
-            gridy = 0
-            anchor = GridBagConstraints.WEST
-            fill = GridBagConstraints.HORIZONTAL
-            weightx = 1.0
-        }
+        val headerGbc =
+            GridBagConstraints().apply {
+                gridx = 0
+                gridy = 0
+                anchor = GridBagConstraints.WEST
+                fill = GridBagConstraints.HORIZONTAL
+                weightx = 1.0
+            }
 
         val label = JBLabel(title)
         label.font = label.font.deriveFont(java.awt.Font.BOLD)
@@ -104,7 +106,10 @@ class FilenameOverlaySettingsConfigurable : Configurable {
         gbc.weightx = 0.0
     }
 
-    private fun createPositionSection(settings: FilenameOverlaySettings, gbc: GridBagConstraints) {
+    private fun createPositionSection(
+        settings: FilenameOverlaySettings,
+        gbc: GridBagConstraints,
+    ) {
         createSectionHeader("Position Settings", gbc)
 
         // Position selector - visual grid with radio buttons at corners
@@ -121,13 +126,14 @@ class FilenameOverlaySettingsConfigurable : Configurable {
         val cornerPanel = createCornerPanel()
 
         // Add corner panel to position panel (left side)
-        val posGbc = GridBagConstraints().apply {
-            gridx = 0
-            gridy = 0
-            gridheight = 2
-            insets = JBUI.insets(10)
-            anchor = GridBagConstraints.NORTHWEST
-        }
+        val posGbc =
+            GridBagConstraints().apply {
+                gridx = 0
+                gridy = 0
+                gridheight = 2
+                insets = JBUI.insets(10)
+                anchor = GridBagConstraints.NORTHWEST
+            }
         positionPanel.add(cornerPanel, posGbc)
 
         // Margin settings panel (right side of corner panel)
@@ -162,27 +168,35 @@ class FilenameOverlaySettingsConfigurable : Configurable {
 
         // Create warning panel with proper text wrapping
         val warningPanel = JPanel(GridBagLayout())
-        val warningGbc = GridBagConstraints().apply {
-            gridx = 0
-            gridy = 0
-            anchor = GridBagConstraints.WEST
-            fill = GridBagConstraints.HORIZONTAL
-            weightx = 1.0
-        }
+        val warningGbc =
+            GridBagConstraints().apply {
+                gridx = 0
+                gridy = 0
+                anchor = GridBagConstraints.WEST
+                fill = GridBagConstraints.HORIZONTAL
+                weightx = 1.0
+            }
 
         // Warning line (red text with blue link for "Sticky Lines")
-        val warningLine = JEditorPane("text/html",
-            """<html><body style="font-family: ${UIManager.getFont("Label.font")?.family ?: "Dialog"}; font-size: ${UIManager.getFont("Label.font")?.size ?: 12}pt; margin: 0; padding: 0;">
+        val warningLine =
+            JEditorPane(
+                "text/html",
+                """<html><body style="font-family: ${UIManager
+                    .getFont(
+                        "Label.font",
+                    )?.family ?: "Dialog"}; font-size: ${UIManager.getFont("Label.font")?.size ?: 12}pt; margin: 0; padding: 0;">
             <span style="color: #CC0000; font-weight: bold;">Warning:</span>
             <span style="color: #CC0000;">Top positions may cause visual glitches when </span><a href="https://www.jetbrains.com/help/idea/sticky-lines.html" style="color: #589DF6;">Sticky Lines</a><span style="color: #CC0000;"> is enabled.</span>
-            </body></html>"""
-        )
+            </body></html>""",
+            )
         warningLine.isEditable = false
         warningLine.isOpaque = false
         warningLine.addHyperlinkListener { e ->
             if (e.eventType == javax.swing.event.HyperlinkEvent.EventType.ACTIVATED) {
                 try {
-                    java.awt.Desktop.getDesktop().browse(e.url.toURI())
+                    java.awt.Desktop
+                        .getDesktop()
+                        .browse(e.url.toURI())
                 } catch (ex: Exception) {
                     // Ignore if browser can't be opened
                 }
@@ -193,19 +207,29 @@ class FilenameOverlaySettingsConfigurable : Configurable {
         // Explanation text (normal color with blue link at end)
         warningGbc.gridy = 1
         warningGbc.insets = JBUI.insets(5, 0, 0, 0)
-        val explanationText = JEditorPane("text/html",
-            """<html><body style="font-family: ${UIManager.getFont("Label.font")?.family ?: "Dialog"}; font-size: ${UIManager.getFont("Label.font")?.size ?: 12}pt; margin: 0; padding: 0; width: 450px;">
+        val explanationText =
+            JEditorPane(
+                "text/html",
+                """<html><body style="font-family: ${UIManager
+                    .getFont(
+                        "Label.font",
+                    )?.family ?: "Dialog"}; font-size: ${UIManager
+                    .getFont(
+                        "Label.font",
+                    )?.size ?: 12}pt; margin: 0; padding: 0; width: 450px;">
             The overlay can scroll out of view when scrolling through the editor with this setting on.
             To avoid this, either use a bottom position for the overlay, or disable Sticky Lines in your IDE settings.
             <a href="https://www.jetbrains.com/help/idea/sticky-lines.html" style="color: #589DF6;">Learn how to disable Sticky Lines.</a>
-            </body></html>"""
-        )
+            </body></html>""",
+            )
         explanationText.isEditable = false
         explanationText.isOpaque = false
         explanationText.addHyperlinkListener { e ->
             if (e.eventType == javax.swing.event.HyperlinkEvent.EventType.ACTIVATED) {
                 try {
-                    java.awt.Desktop.getDesktop().browse(e.url.toURI())
+                    java.awt.Desktop
+                        .getDesktop()
+                        .browse(e.url.toURI())
                 } catch (ex: Exception) {
                     // Ignore if browser can't be opened
                 }
@@ -320,12 +344,13 @@ class FilenameOverlaySettingsConfigurable : Configurable {
 
     private fun createMarginPanel(): JPanel {
         val marginPanel = JPanel(GridBagLayout())
-        val marginGbc = GridBagConstraints().apply {
-            gridx = 0
-            gridy = 0
-            anchor = GridBagConstraints.WEST
-            insets = JBUI.insets(5)
-        }
+        val marginGbc =
+            GridBagConstraints().apply {
+                gridx = 0
+                gridy = 0
+                anchor = GridBagConstraints.WEST
+                insets = JBUI.insets(5)
+            }
 
         marginPanel.add(JBLabel("Horizontal margin:"), marginGbc)
 
@@ -362,11 +387,12 @@ class FilenameOverlaySettingsConfigurable : Configurable {
         lightModeColorButton = JButton("Choose Color")
         lightModeColorButton!!.background = lightModeColor
         lightModeColorButton!!.addActionListener {
-            val newColor = JColorChooser.showDialog(
-                settingsPanel,
-                "Choose Focused Border Color (Light Mode)",
-                lightModeColor
-            )
+            val newColor =
+                JColorChooser.showDialog(
+                    settingsPanel,
+                    "Choose Focused Border Color (Light Mode)",
+                    lightModeColor,
+                )
             if (newColor != null) {
                 lightModeColor = newColor
                 lightModeColorButton!!.background = newColor
@@ -384,11 +410,12 @@ class FilenameOverlaySettingsConfigurable : Configurable {
         darkModeColorButton = JButton("Choose Color")
         darkModeColorButton!!.background = darkModeColor
         darkModeColorButton!!.addActionListener {
-            val newColor = JColorChooser.showDialog(
-                settingsPanel,
-                "Choose Focused Border Color (Dark Mode)",
-                darkModeColor
-            )
+            val newColor =
+                JColorChooser.showDialog(
+                    settingsPanel,
+                    "Choose Focused Border Color (Dark Mode)",
+                    darkModeColor,
+                )
             if (newColor != null) {
                 darkModeColor = newColor
                 darkModeColorButton!!.background = newColor
@@ -397,7 +424,10 @@ class FilenameOverlaySettingsConfigurable : Configurable {
         settingsPanel!!.add(darkModeColorButton!!, gbc)
     }
 
-    private fun createFontSection(settings: FilenameOverlaySettings, gbc: GridBagConstraints) {
+    private fun createFontSection(
+        settings: FilenameOverlaySettings,
+        gbc: GridBagConstraints,
+    ) {
         createSectionHeader("Font Settings", gbc)
 
         // Font source combo box
@@ -443,11 +473,12 @@ class FilenameOverlaySettingsConfigurable : Configurable {
         fontSourceCombo!!.addActionListener { updateFontComboState() }
 
         // Load current settings
-        fontSourceCombo!!.selectedIndex = when (settings.getFontSource()) {
-            FontSource.UI_FONT -> 0
-            FontSource.EDITOR_FONT -> 1
-            FontSource.CUSTOM_FONT -> 2
-        }
+        fontSourceCombo!!.selectedIndex =
+            when (settings.getFontSource()) {
+                FontSource.UI_FONT -> 0
+                FontSource.EDITOR_FONT -> 1
+                FontSource.CUSTOM_FONT -> 2
+            }
 
         val customFont = settings.getCustomFontFamily()
         if (customFont.isNotEmpty()) {
@@ -458,7 +489,10 @@ class FilenameOverlaySettingsConfigurable : Configurable {
         updateFontComboState()
     }
 
-    private fun createBehaviorSection(settings: FilenameOverlaySettings, gbc: GridBagConstraints) {
+    private fun createBehaviorSection(
+        settings: FilenameOverlaySettings,
+        gbc: GridBagConstraints,
+    ) {
         createSectionHeader("Behavior Settings", gbc)
 
         // Project view toggle checkbox
@@ -480,30 +514,32 @@ class FilenameOverlaySettingsConfigurable : Configurable {
     override fun isModified(): Boolean {
         val settings = FilenameOverlaySettings.getInstance()
 
-        val currentFontSource = when (fontSourceCombo!!.selectedIndex) {
-            0 -> FontSource.UI_FONT
-            1 -> FontSource.EDITOR_FONT
-            2 -> FontSource.CUSTOM_FONT
-            else -> FontSource.UI_FONT
-        }
+        val currentFontSource =
+            when (fontSourceCombo!!.selectedIndex) {
+                0 -> FontSource.UI_FONT
+                1 -> FontSource.EDITOR_FONT
+                2 -> FontSource.CUSTOM_FONT
+                else -> FontSource.UI_FONT
+            }
 
-        val currentPosition = when {
-            topLeftRadio!!.isSelected -> OverlayPosition.TOP_LEFT
-            topRightRadio!!.isSelected -> OverlayPosition.TOP_RIGHT
-            bottomLeftRadio!!.isSelected -> OverlayPosition.BOTTOM_LEFT
-            else -> OverlayPosition.BOTTOM_RIGHT
-        }
+        val currentPosition =
+            when {
+                topLeftRadio!!.isSelected -> OverlayPosition.TOP_LEFT
+                topRightRadio!!.isSelected -> OverlayPosition.TOP_RIGHT
+                bottomLeftRadio!!.isSelected -> OverlayPosition.BOTTOM_LEFT
+                else -> OverlayPosition.BOTTOM_RIGHT
+            }
 
         return lightModeColor != settings.getFocusedBorderColorLight() ||
-                darkModeColor != settings.getFocusedBorderColorDark() ||
-                currentFontSource != settings.getFontSource() ||
-                fontFamilyCombo!!.selectedItem as String != settings.getCustomFontFamily() ||
-                fontSizeSpinner!!.value as Int != settings.getFontSize() ||
-                projectViewToggleCheckbox!!.isSelected != settings.isProjectViewToggleEnabled() ||
-                gitLineStatsCheckbox!!.isSelected != settings.isGitLineStatsEnabled() ||
-                currentPosition != settings.getOverlayPosition() ||
-                horizontalMarginSpinner!!.value as Int != settings.getHorizontalMargin() ||
-                verticalMarginSpinner!!.value as Int != settings.getVerticalMargin()
+            darkModeColor != settings.getFocusedBorderColorDark() ||
+            currentFontSource != settings.getFontSource() ||
+            fontFamilyCombo!!.selectedItem as String != settings.getCustomFontFamily() ||
+            fontSizeSpinner!!.value as Int != settings.getFontSize() ||
+            projectViewToggleCheckbox!!.isSelected != settings.isProjectViewToggleEnabled() ||
+            gitLineStatsCheckbox!!.isSelected != settings.isGitLineStatsEnabled() ||
+            currentPosition != settings.getOverlayPosition() ||
+            horizontalMarginSpinner!!.value as Int != settings.getHorizontalMargin() ||
+            verticalMarginSpinner!!.value as Int != settings.getVerticalMargin()
     }
 
     override fun apply() {
@@ -511,12 +547,13 @@ class FilenameOverlaySettingsConfigurable : Configurable {
         lightModeColor?.let { settings.setFocusedBorderColorLight(it) }
         darkModeColor?.let { settings.setFocusedBorderColorDark(it) }
 
-        val fontSource = when (fontSourceCombo!!.selectedIndex) {
-            0 -> FontSource.UI_FONT
-            1 -> FontSource.EDITOR_FONT
-            2 -> FontSource.CUSTOM_FONT
-            else -> FontSource.UI_FONT
-        }
+        val fontSource =
+            when (fontSourceCombo!!.selectedIndex) {
+                0 -> FontSource.UI_FONT
+                1 -> FontSource.EDITOR_FONT
+                2 -> FontSource.CUSTOM_FONT
+                else -> FontSource.UI_FONT
+            }
         settings.setFontSource(fontSource)
         settings.setCustomFontFamily(fontFamilyCombo!!.selectedItem as String)
         settings.setFontSize(fontSizeSpinner!!.value as Int)
@@ -524,18 +561,21 @@ class FilenameOverlaySettingsConfigurable : Configurable {
         settings.setGitLineStatsEnabled(gitLineStatsCheckbox!!.isSelected)
 
         // Save position settings
-        val position = when {
-            topLeftRadio!!.isSelected -> OverlayPosition.TOP_LEFT
-            topRightRadio!!.isSelected -> OverlayPosition.TOP_RIGHT
-            bottomLeftRadio!!.isSelected -> OverlayPosition.BOTTOM_LEFT
-            else -> OverlayPosition.BOTTOM_RIGHT
-        }
+        val position =
+            when {
+                topLeftRadio!!.isSelected -> OverlayPosition.TOP_LEFT
+                topRightRadio!!.isSelected -> OverlayPosition.TOP_RIGHT
+                bottomLeftRadio!!.isSelected -> OverlayPosition.BOTTOM_LEFT
+                else -> OverlayPosition.BOTTOM_RIGHT
+            }
         settings.setOverlayPosition(position)
         settings.setHorizontalMargin(horizontalMarginSpinner!!.value as Int)
         settings.setVerticalMargin(verticalMarginSpinner!!.value as Int)
 
         // Notify all overlays that settings have changed
-        com.intellij.openapi.application.ApplicationManager.getApplication().messageBus
+        com.intellij.openapi.application.ApplicationManager
+            .getApplication()
+            .messageBus
             .syncPublisher(SettingsChangeListener.TOPIC)
             .settingsChanged()
     }
@@ -547,11 +587,12 @@ class FilenameOverlaySettingsConfigurable : Configurable {
         lightModeColorButton?.background = lightModeColor
         darkModeColorButton?.background = darkModeColor
 
-        fontSourceCombo!!.selectedIndex = when (settings.getFontSource()) {
-            FontSource.UI_FONT -> 0
-            FontSource.EDITOR_FONT -> 1
-            FontSource.CUSTOM_FONT -> 2
-        }
+        fontSourceCombo!!.selectedIndex =
+            when (settings.getFontSource()) {
+                FontSource.UI_FONT -> 0
+                FontSource.EDITOR_FONT -> 1
+                FontSource.CUSTOM_FONT -> 2
+            }
 
         val customFont = settings.getCustomFontFamily()
         if (customFont.isNotEmpty()) {

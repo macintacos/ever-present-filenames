@@ -4,38 +4,49 @@ import com.github.macintacos.everpresentfilenames.settings.FilenameOverlaySettin
 import com.github.macintacos.everpresentfilenames.settings.FontSource
 import com.github.macintacos.everpresentfilenames.settings.OverlayPosition
 import com.github.macintacos.everpresentfilenames.settings.SettingsChangeListener
+import com.intellij.ide.projectView.ProjectView
+import com.intellij.openapi.Disposable
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.editor.Editor
 import com.intellij.openapi.editor.EditorFactory
 import com.intellij.openapi.editor.event.DocumentEvent
 import com.intellij.openapi.editor.event.DocumentListener
-import com.intellij.openapi.Disposable
 import com.intellij.openapi.fileEditor.FileDocumentManager
 import com.intellij.openapi.fileEditor.FileDocumentManagerListener
 import com.intellij.openapi.fileEditor.FileEditorManager
+import com.intellij.openapi.ide.CopyPasteManager
 import com.intellij.openapi.project.guessProjectDir
 import com.intellij.openapi.ui.Messages
-import com.intellij.openapi.ide.CopyPasteManager
-import com.intellij.openapi.vfs.VirtualFile
-import com.intellij.openapi.vfs.VfsUtil
-import com.intellij.openapi.wm.ToolWindowManager
-import com.intellij.ide.projectView.ProjectView
-import git4idea.repo.GitRepository
-import git4idea.repo.GitRepositoryChangeListener
-import git4idea.repo.GitRepositoryManager
-import com.intellij.openapi.vcs.changes.ChangeListManager
-import com.intellij.openapi.vcs.changes.actions.diff.ShowDiffAction
-import com.intellij.util.Alarm
-import com.intellij.openapi.util.IconLoader
-import com.intellij.ui.JBColor
-import com.intellij.ui.awt.RelativePoint
-import com.intellij.util.IconUtil
 import com.intellij.openapi.ui.popup.Balloon
 import com.intellij.openapi.ui.popup.JBPopupFactory
 import com.intellij.openapi.ui.popup.PopupStep
 import com.intellij.openapi.ui.popup.util.BaseListPopupStep
+import com.intellij.openapi.util.IconLoader
+import com.intellij.openapi.vcs.changes.ChangeListManager
+import com.intellij.openapi.vcs.changes.actions.diff.ShowDiffAction
+import com.intellij.openapi.vfs.VfsUtil
+import com.intellij.openapi.vfs.VirtualFile
+import com.intellij.openapi.wm.ToolWindowManager
+import com.intellij.ui.JBColor
+import com.intellij.ui.awt.RelativePoint
+import com.intellij.util.Alarm
+import com.intellij.util.IconUtil
 import com.intellij.util.ui.JBUI
-import java.awt.*
+import git4idea.repo.GitRepository
+import git4idea.repo.GitRepositoryChangeListener
+import git4idea.repo.GitRepositoryManager
+import java.awt.BasicStroke
+import java.awt.Color
+import java.awt.Cursor
+import java.awt.Dimension
+import java.awt.Font
+import java.awt.FontMetrics
+import java.awt.GradientPaint
+import java.awt.Graphics
+import java.awt.Graphics2D
+import java.awt.Point
+import java.awt.Rectangle
+import java.awt.RenderingHints
 import java.awt.datatransfer.StringSelection
 import java.awt.event.MouseAdapter
 import java.awt.event.MouseEvent
@@ -52,7 +63,7 @@ data class GitLineStats(
     val added: Int,
     val removed: Int,
     val modified: Int,
-    val isUntracked: Boolean = false
+    val isUntracked: Boolean = false,
 ) {
     fun hasChanges(): Boolean = added > 0 || removed > 0 || modified > 0 || isUntracked
 }
@@ -74,18 +85,22 @@ class FilenameOverlay(
     private val file: VirtualFile,
     private val icon: Icon?,
     private val showGitStats: Boolean = true,
-    private val isDiffMode: Boolean = false
-) : JComponent(), Disposable {
-
+    private val isDiffMode: Boolean = false,
+) : JComponent(),
+    Disposable {
     companion object {
         // Track the last revealed file to enable toggle behavior
         private var lastRevealedFile: VirtualFile? = null
 
         // Custom git stats icons
-        private val gitStatsAddedIcon = IconLoader.getIcon("/icons/gitStatsAdded.svg", FilenameOverlay::class.java)
-        private val gitStatsRemovedIcon = IconLoader.getIcon("/icons/gitStatsRemoved.svg", FilenameOverlay::class.java)
-        private val gitStatsModifiedIcon = IconLoader.getIcon("/icons/gitStatsModified.svg", FilenameOverlay::class.java)
-        private val gitStatsUntrackedIcon = IconLoader.getIcon("/icons/gitStatsUntracked.svg", FilenameOverlay::class.java)
+        private val gitStatsAddedIcon =
+            IconLoader.getIcon("/icons/gitStatsAdded.svg", FilenameOverlay::class.java)
+        private val gitStatsRemovedIcon =
+            IconLoader.getIcon("/icons/gitStatsRemoved.svg", FilenameOverlay::class.java)
+        private val gitStatsModifiedIcon =
+            IconLoader.getIcon("/icons/gitStatsModified.svg", FilenameOverlay::class.java)
+        private val gitStatsUntrackedIcon =
+            IconLoader.getIcon("/icons/gitStatsUntracked.svg", FilenameOverlay::class.java)
     }
 
     private val padding = JBUI.scale(5)
@@ -126,11 +141,13 @@ class FilenameOverlay(
         updatePosition()
 
         // Listen for editor size changes to update position
-        editor.component.addComponentListener(object : java.awt.event.ComponentAdapter() {
-            override fun componentResized(e: java.awt.event.ComponentEvent?) {
-                updatePosition()
-            }
-        })
+        editor.component.addComponentListener(
+            object : java.awt.event.ComponentAdapter() {
+                override fun componentResized(e: java.awt.event.ComponentEvent?) {
+                    updatePosition()
+                }
+            },
+        )
 
         // Listen for scroll events to update position when scrolling
         editor.scrollingModel.addVisibleAreaListener { _ ->
@@ -138,53 +155,57 @@ class FilenameOverlay(
         }
 
         // Listen for focus changes to update border color
-        editor.contentComponent.addFocusListener(object : java.awt.event.FocusListener {
-            override fun focusGained(e: java.awt.event.FocusEvent?) {
-                isEditorFocused = true
-                repaint()
-            }
-
-            override fun focusLost(e: java.awt.event.FocusEvent?) {
-                isEditorFocused = false
-                repaint()
-            }
-        })
-
-        // Add mouse listener for click actions
-        addMouseListener(object : MouseAdapter() {
-            override fun mouseClicked(e: MouseEvent) {
-                if (e.button == MouseEvent.BUTTON1) {
-                    // Check if click is on icon (which acts as close button)
-                    if (iconBounds?.contains(e.point) == true) {
-                        closeFile()
-                    } else if (diffSuffixBounds?.contains(e.point) == true) {
-                        // Left click on diff suffix: Open the file in editor
-                        openFileInEditor()
-                    } else if (gitStatsBounds?.contains(e.point) == true) {
-                        // Left click on git stats: Show diff view
-                        showFileDiff()
-                    } else {
-                        // Left click on filename area: Reveal file in Project view
-                        revealInProjectView()
-                    }
-                } else if (e.button == MouseEvent.BUTTON3) {
-                    // Right click: Show context menu
-                    showContextMenu(e)
-                }
-            }
-
-            override fun mouseExited(e: MouseEvent) {
-                // Reset hover state when mouse leaves the component
-                if (isHoveringIcon || isHoveringText || isHoveringGitStats || isHoveringDiffSuffix) {
-                    isHoveringIcon = false
-                    isHoveringText = false
-                    isHoveringGitStats = false
-                    isHoveringDiffSuffix = false
-                    cursor = Cursor.getDefaultCursor()
+        editor.contentComponent.addFocusListener(
+            object : java.awt.event.FocusListener {
+                override fun focusGained(e: java.awt.event.FocusEvent?) {
+                    isEditorFocused = true
                     repaint()
                 }
-            }
-        })
+
+                override fun focusLost(e: java.awt.event.FocusEvent?) {
+                    isEditorFocused = false
+                    repaint()
+                }
+            },
+        )
+
+        // Add mouse listener for click actions
+        addMouseListener(
+            object : MouseAdapter() {
+                override fun mouseClicked(e: MouseEvent) {
+                    if (e.button == MouseEvent.BUTTON1) {
+                        // Check if click is on icon (which acts as close button)
+                        if (iconBounds?.contains(e.point) == true) {
+                            closeFile()
+                        } else if (diffSuffixBounds?.contains(e.point) == true) {
+                            // Left click on diff suffix: Open the file in editor
+                            openFileInEditor()
+                        } else if (gitStatsBounds?.contains(e.point) == true) {
+                            // Left click on git stats: Show diff view
+                            showFileDiff()
+                        } else {
+                            // Left click on filename area: Reveal file in Project view
+                            revealInProjectView()
+                        }
+                    } else if (e.button == MouseEvent.BUTTON3) {
+                        // Right click: Show context menu
+                        showContextMenu(e)
+                    }
+                }
+
+                override fun mouseExited(e: MouseEvent) {
+                    // Reset hover state when mouse leaves the component
+                    if (isHoveringIcon || isHoveringText || isHoveringGitStats || isHoveringDiffSuffix) {
+                        isHoveringIcon = false
+                        isHoveringText = false
+                        isHoveringGitStats = false
+                        isHoveringDiffSuffix = false
+                        cursor = Cursor.getDefaultCursor()
+                        repaint()
+                    }
+                }
+            },
+        )
 
         // Add mouse wheel listener for horizontal scrolling
         addMouseWheelListener { e ->
@@ -197,84 +218,100 @@ class FilenameOverlay(
         }
 
         // Add mouse motion listener for hover effects
-        addMouseMotionListener(object : java.awt.event.MouseMotionAdapter() {
-            override fun mouseMoved(e: MouseEvent) {
-                val wasHoveringIcon = isHoveringIcon
-                val wasHoveringText = isHoveringText
-                val wasHoveringGitStats = isHoveringGitStats
-                val wasHoveringDiffSuffix = isHoveringDiffSuffix
+        addMouseMotionListener(
+            object : java.awt.event.MouseMotionAdapter() {
+                override fun mouseMoved(e: MouseEvent) {
+                    val wasHoveringIcon = isHoveringIcon
+                    val wasHoveringText = isHoveringText
+                    val wasHoveringGitStats = isHoveringGitStats
+                    val wasHoveringDiffSuffix = isHoveringDiffSuffix
 
-                isHoveringIcon = iconBounds?.contains(e.point) == true
-                isHoveringDiffSuffix = diffSuffixBounds?.contains(e.point) == true
-                isHoveringGitStats = gitStatsBounds?.contains(e.point) == true
-                isHoveringText = textBounds?.contains(e.point) == true
+                    isHoveringIcon = iconBounds?.contains(e.point) == true
+                    isHoveringDiffSuffix = diffSuffixBounds?.contains(e.point) == true
+                    isHoveringGitStats = gitStatsBounds?.contains(e.point) == true
+                    isHoveringText = textBounds?.contains(e.point) == true
 
-                // Priority: icon > diff suffix > git stats > text
-                if (isHoveringIcon) {
-                    isHoveringDiffSuffix = false
-                    isHoveringGitStats = false
-                    isHoveringText = false
-                } else if (isHoveringDiffSuffix) {
-                    isHoveringGitStats = false
-                    isHoveringText = false
-                } else if (isHoveringGitStats) {
-                    isHoveringText = false
-                }
-
-                if (wasHoveringIcon != isHoveringIcon || wasHoveringText != isHoveringText || wasHoveringGitStats != isHoveringGitStats || wasHoveringDiffSuffix != isHoveringDiffSuffix) {
-                    // Update cursor
-                    cursor = if (isHoveringIcon || isHoveringText || isHoveringGitStats || isHoveringDiffSuffix) {
-                        Cursor.getPredefinedCursor(Cursor.HAND_CURSOR)
-                    } else {
-                        Cursor.getDefaultCursor()
+                    // Priority: icon > diff suffix > git stats > text
+                    if (isHoveringIcon) {
+                        isHoveringDiffSuffix = false
+                        isHoveringGitStats = false
+                        isHoveringText = false
+                    } else if (isHoveringDiffSuffix) {
+                        isHoveringGitStats = false
+                        isHoveringText = false
+                    } else if (isHoveringGitStats) {
+                        isHoveringText = false
                     }
 
-                    repaint()
+                    val hoverStateChanged =
+                        wasHoveringIcon != isHoveringIcon ||
+                            wasHoveringText != isHoveringText ||
+                            wasHoveringGitStats != isHoveringGitStats ||
+                            wasHoveringDiffSuffix != isHoveringDiffSuffix
+                    if (hoverStateChanged) {
+                        // Update cursor
+                        cursor =
+                            if (isHoveringIcon || isHoveringText || isHoveringGitStats || isHoveringDiffSuffix) {
+                                Cursor.getPredefinedCursor(Cursor.HAND_CURSOR)
+                            } else {
+                                Cursor.getDefaultCursor()
+                            }
+
+                        repaint()
+                    }
                 }
-            }
-        })
+            },
+        )
 
         // Listen for document changes to update modified indicator (blue dot)
-        EditorFactory.getInstance().eventMulticaster.addDocumentListener(object : DocumentListener {
-            override fun documentChanged(event: DocumentEvent) {
-                // Only handle events for our specific document
-                if (event.document == editor.document) {
-                    updatePosition() // Update position for modified dot indicator
-                    // Note: Git stats only update on file save, not on every keystroke
+        EditorFactory.getInstance().eventMulticaster.addDocumentListener(
+            object : DocumentListener {
+                override fun documentChanged(event: DocumentEvent) {
+                    // Only handle events for our specific document
+                    if (event.document == editor.document) {
+                        updatePosition() // Update position for modified dot indicator
+                        // Note: Git stats only update on file save, not on every keystroke
+                    }
                 }
-            }
-        }, this)
+            },
+            this,
+        )
 
         // Initialize git stats
         updateGitStats()
 
         // Listen for file save events to update the UI when file is saved
         messageBusConnection = editor.project?.messageBus?.connect()
-        val saveListener = object : FileDocumentManagerListener {
-            override fun beforeDocumentSaving(document: com.intellij.openapi.editor.Document) {
-                // Check if this is our document
-                if (document == editor.document) {
-                    // Defer the update until after the save completes
-                    ApplicationManager.getApplication().invokeLater {
-                        updatePosition() // Update to remove blue dot
-                        // Schedule git stats update after save (with delay to ensure file is written)
-                        scheduleGitStatsUpdate()
+        val saveListener =
+            object : FileDocumentManagerListener {
+                override fun beforeDocumentSaving(document: com.intellij.openapi.editor.Document) {
+                    // Check if this is our document
+                    if (document == editor.document) {
+                        // Defer the update until after the save completes
+                        ApplicationManager.getApplication().invokeLater {
+                            updatePosition() // Update to remove blue dot
+                            // Schedule git stats update after save (with delay to ensure file is written)
+                            scheduleGitStatsUpdate()
+                        }
                     }
                 }
             }
-        }
         messageBusConnection?.subscribe(FileDocumentManagerListener.TOPIC, saveListener)
 
         // Listen for settings changes to update font, git stats, and recalculate sizes
-        val settingsListener = object : SettingsChangeListener {
-            override fun settingsChanged() {
-                ApplicationManager.getApplication().invokeLater {
-                    updateGitStats() // Refresh git stats (will clear if feature disabled)
-                    updatePosition() // Recalculate size with new font settings
+        val settingsListener =
+            object : SettingsChangeListener {
+                override fun settingsChanged() {
+                    ApplicationManager.getApplication().invokeLater {
+                        updateGitStats() // Refresh git stats (will clear if feature disabled)
+                        updatePosition() // Recalculate size with new font settings
+                    }
                 }
             }
-        }
-        ApplicationManager.getApplication().messageBus.connect(this)
+        ApplicationManager
+            .getApplication()
+            .messageBus
+            .connect(this)
             .subscribe(SettingsChangeListener.TOPIC, settingsListener)
 
         // Listen for git repository changes (commits, pulls, etc.) to update git stats
@@ -282,11 +319,12 @@ class FilenameOverlay(
             GitRepository.GIT_REPO_CHANGE,
             GitRepositoryChangeListener { repository ->
                 // Check if this change affects our file's repository
-                val fileRepo = GitRepositoryManager.getInstance(editor.project!!).getRepositoryForFile(file)
+                val fileRepo =
+                    GitRepositoryManager.getInstance(editor.project!!).getRepositoryForFile(file)
                 if (fileRepo == repository) {
                     scheduleGitStatsUpdate()
                 }
-            }
+            },
         )
     }
 
@@ -302,10 +340,16 @@ class FilenameOverlay(
     /**
      * Override to return tooltip text when hovering over text or icon
      */
-    override fun getToolTipText(event: MouseEvent?): String? {
-        return when {
-            isHoveringIcon -> "Close Tab"
-            isHoveringDiffSuffix -> "Open File"
+    override fun getToolTipText(event: MouseEvent?): String? =
+        when {
+            isHoveringIcon -> {
+                "Close Tab"
+            }
+
+            isHoveringDiffSuffix -> {
+                "Open File"
+            }
+
             isHoveringGitStats -> {
                 if (currentGitStats?.isUntracked == true) {
                     "Show Diff (Currently Untracked)"
@@ -313,10 +357,15 @@ class FilenameOverlay(
                     "Show Diff"
                 }
             }
-            isHoveringText -> "Reveal file in Project Outline"
-            else -> null
+
+            isHoveringText -> {
+                "Reveal file in Project Outline"
+            }
+
+            else -> {
+                null
+            }
         }
-    }
 
     /**
      * Gets accurate font metrics for a given font using a Graphics2D context
@@ -325,7 +374,10 @@ class FilenameOverlay(
     private fun getAccurateFontMetrics(font: Font): FontMetrics {
         val img = BufferedImage(1, 1, BufferedImage.TYPE_INT_ARGB)
         val g2d = img.createGraphics()
-        g2d.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON)
+        g2d.setRenderingHint(
+            RenderingHints.KEY_TEXT_ANTIALIASING,
+            RenderingHints.VALUE_TEXT_ANTIALIAS_ON,
+        )
         g2d.font = font
         val metrics = g2d.fontMetrics
         g2d.dispose()
@@ -366,26 +418,38 @@ class FilenameOverlay(
         val fontSource = settings.getFontSource()
         val fontSize = settings.getFontSize()
 
-        val baseFont = when (fontSource) {
-            FontSource.UI_FONT -> {
-                // Use the default UI font
-                UIManager.getFont("Label.font") ?: java.awt.Font("Dialog", java.awt.Font.PLAIN, 12)
-            }
-            FontSource.EDITOR_FONT -> {
-                // Use the editor font
-                editor.colorsScheme.getFont(com.intellij.openapi.editor.colors.EditorFontType.PLAIN)
-            }
-            FontSource.CUSTOM_FONT -> {
-                // Use custom font
-                val fontFamily = settings.getCustomFontFamily()
-                val defaultFont = UIManager.getFont("Label.font") ?: java.awt.Font("Dialog", java.awt.Font.PLAIN, 12)
-                if (fontFamily.isNotEmpty()) {
-                    java.awt.Font(fontFamily, java.awt.Font.PLAIN, defaultFont.size)
-                } else {
-                    defaultFont
+        val baseFont =
+            when (fontSource) {
+                FontSource.UI_FONT -> {
+                    // Use the default UI font
+                    UIManager.getFont("Label.font") ?: java.awt.Font(
+                        "Dialog",
+                        java.awt.Font.PLAIN,
+                        12,
+                    )
+                }
+
+                FontSource.EDITOR_FONT -> {
+                    // Use the editor font
+                    editor.colorsScheme.getFont(com.intellij.openapi.editor.colors.EditorFontType.PLAIN)
+                }
+
+                FontSource.CUSTOM_FONT -> {
+                    // Use custom font
+                    val fontFamily = settings.getCustomFontFamily()
+                    val defaultFont =
+                        UIManager.getFont("Label.font") ?: java.awt.Font(
+                            "Dialog",
+                            java.awt.Font.PLAIN,
+                            12,
+                        )
+                    if (fontFamily.isNotEmpty()) {
+                        java.awt.Font(fontFamily, java.awt.Font.PLAIN, defaultFont.size)
+                    } else {
+                        defaultFont
+                    }
                 }
             }
-        }
 
         // Apply font size
         return baseFont.deriveFont(fontSize.toFloat())
@@ -419,20 +483,23 @@ class FilenameOverlay(
 
             // Get relative path from repo root
             val absolutePath = file.path
-            val relativePath = if (absolutePath.startsWith(repoRootPath)) {
-                absolutePath.removePrefix(repoRootPath).removePrefix("/")
-            } else {
-                absolutePath
-            }
+            val relativePath =
+                if (absolutePath.startsWith(repoRootPath)) {
+                    absolutePath.removePrefix(repoRootPath).removePrefix("/")
+                } else {
+                    absolutePath
+                }
 
             // First, check if file is untracked using git status --porcelain
-            val statusProcess = ProcessBuilder()
-                .command("git", "status", "--porcelain", "--", relativePath)
-                .directory(java.io.File(repoRootPath))
-                .redirectErrorStream(false)
-                .start()
+            val statusProcess =
+                ProcessBuilder()
+                    .command("git", "status", "--porcelain", "--", relativePath)
+                    .directory(java.io.File(repoRootPath))
+                    .redirectErrorStream(false)
+                    .start()
 
-            val statusOutput = statusProcess.inputStream.bufferedReader().use { it.readText().trim() }
+            val statusOutput =
+                statusProcess.inputStream.bufferedReader().use { it.readText().trim() }
             statusProcess.waitFor()
 
             // Check if file is untracked (starts with "??")
@@ -441,10 +508,11 @@ class FilenameOverlay(
             }
 
             // Run git diff --numstat HEAD using ProcessBuilder
-            val processBuilder = ProcessBuilder()
-                .command("git", "diff", "--numstat", "HEAD", "--", relativePath)
-                .directory(java.io.File(repoRootPath))
-                .redirectErrorStream(false)
+            val processBuilder =
+                ProcessBuilder()
+                    .command("git", "diff", "--numstat", "HEAD", "--", relativePath)
+                    .directory(java.io.File(repoRootPath))
+                    .redirectErrorStream(false)
 
             val process = processBuilder.start()
 
@@ -514,7 +582,10 @@ class FilenameOverlay(
     /**
      * Calculates the width needed to render a single git stat item (icon + number)
      */
-    private fun calculateGitStatItemWidth(value: Int, metrics: FontMetrics): Int {
+    private fun calculateGitStatItemWidth(
+        value: Int,
+        metrics: FontMetrics,
+    ): Int {
         if (value == 0) return 0
         val numberWidth = metrics.stringWidth(value.toString())
         return gitStatsIconSize + gitStatsNumberSpacing + numberWidth
@@ -584,7 +655,8 @@ class FilenameOverlay(
             // Check if toggle behavior is enabled and if we're clicking on the same file that was last revealed
             if (settings.isProjectViewToggleEnabled() &&
                 lastRevealedFile == file &&
-                projectToolWindow?.isVisible == true) {
+                projectToolWindow?.isVisible == true
+            ) {
                 // Same file and project window is visible, so close it
                 projectToolWindow.hide(null)
                 lastRevealedFile = null
@@ -630,15 +702,16 @@ class FilenameOverlay(
 
             if (isModified) {
                 // Show dialog asking user what to do with unsaved changes
-                val result = Messages.showYesNoCancelDialog(
-                    project,
-                    "File '${file.name}' has unsaved changes. Do you want to save them?",
-                    "Unsaved Changes",
-                    "Save",
-                    "Don't Save",
-                    "Cancel",
-                    Messages.getQuestionIcon()
-                )
+                val result =
+                    Messages.showYesNoCancelDialog(
+                        project,
+                        "File '${file.name}' has unsaved changes. Do you want to save them?",
+                        "Unsaved Changes",
+                        "Save",
+                        "Don't Save",
+                        "Cancel",
+                        Messages.getQuestionIcon(),
+                    )
 
                 when (result) {
                     Messages.YES -> {
@@ -646,10 +719,12 @@ class FilenameOverlay(
                         fileDocumentManager.saveDocument(editor.document)
                         fileEditorManager.closeFile(file)
                     }
+
                     Messages.NO -> {
                         // Close without saving
                         fileEditorManager.closeFile(file)
                     }
+
                     Messages.CANCEL -> {
                         // Do nothing, keep file open
                     }
@@ -681,9 +756,15 @@ class FilenameOverlay(
             // If no change found, check if file is unversioned and create a change for it
             if (change == null && changeListManager.isUnversioned(file)) {
                 // For unversioned files, create a Change representing a new file
-                val filePath = com.intellij.vcsUtil.VcsUtil.getFilePath(file)
-                val afterRevision = com.intellij.openapi.vcs.changes.CurrentContentRevision(filePath)
-                change = com.intellij.openapi.vcs.changes.Change(null, afterRevision)
+                val filePath =
+                    com.intellij.vcsUtil.VcsUtil
+                        .getFilePath(file)
+                val afterRevision =
+                    com.intellij.openapi.vcs.changes
+                        .CurrentContentRevision(filePath)
+                change =
+                    com.intellij.openapi.vcs.changes
+                        .Change(null, afterRevision)
             }
 
             if (change != null) {
@@ -704,16 +785,21 @@ class FilenameOverlay(
     /**
      * Shows a toast notification with the copied content
      */
-    private fun showCopiedToast(label: String, content: String) {
+    private fun showCopiedToast(
+        label: String,
+        content: String,
+    ) {
         val message = "Copied '$content' to clipboard"
 
-        val balloon = JBPopupFactory.getInstance()
-            .createHtmlTextBalloonBuilder(message, null, JBColor.background(), null)
-            .setFadeoutTime(2000)
-            .setHideOnClickOutside(true)
-            .setHideOnAction(true)
-            .setHideOnKeyOutside(true)
-            .createBalloon()
+        val balloon =
+            JBPopupFactory
+                .getInstance()
+                .createHtmlTextBalloonBuilder(message, null, JBColor.background(), null)
+                .setFadeoutTime(2000)
+                .setHideOnClickOutside(true)
+                .setHideOnAction(true)
+                .setHideOnKeyOutside(true)
+                .createBalloon()
 
         // Show the balloon above the overlay component
         balloon.show(RelativePoint(this, Point(width / 2, 0)), Balloon.Position.above)
@@ -729,7 +815,7 @@ class FilenameOverlay(
             (color.red * clampedFactor).toInt().coerceIn(0, 255),
             (color.green * clampedFactor).toInt().coerceIn(0, 255),
             (color.blue * clampedFactor).toInt().coerceIn(0, 255),
-            color.alpha
+            color.alpha,
         )
     }
 
@@ -750,9 +836,9 @@ class FilenameOverlay(
         val luminance = calculateLuminance(backgroundColor)
         // If luminance > 128, background is light, use dark text; otherwise use light text
         return if (luminance > 128) {
-            Color(30, 30, 30)    // Dark text for light background
+            Color(30, 30, 30) // Dark text for light background
         } else {
-            Color(220, 220, 220)  // Light text for dark background
+            Color(220, 220, 220) // Light text for dark background
         }
     }
 
@@ -762,43 +848,48 @@ class FilenameOverlay(
     private fun showContextMenu(e: MouseEvent) {
         val options = listOf("Copy File Name", "Copy Relative Path", "Copy Absolute Path")
 
-        val popup = JBPopupFactory.getInstance().createListPopup(
-            object : BaseListPopupStep<String>("Copy", options) {
-                override fun onChosen(selectedValue: String, finalChoice: Boolean): PopupStep<*>? {
-                    if (finalChoice) {
-                        when (selectedValue) {
-                            "Copy File Name" -> {
-                                copyToClipboard(file.name)
-                                showCopiedToast("File Name", file.name)
-                            }
-
-                            "Copy Relative Path" -> {
-                                val project = editor.project
-                                val relativePath = if (project != null) {
-                                    val projectBaseDir = project.guessProjectDir()
-                                    if (projectBaseDir != null) {
-                                        VfsUtil.getRelativePath(file, projectBaseDir, '/')
-                                            ?: file.path
-                                    } else {
-                                        file.path
-                                    }
-                                } else {
-                                    file.path
+        val popup =
+            JBPopupFactory.getInstance().createListPopup(
+                object : BaseListPopupStep<String>("Copy", options) {
+                    override fun onChosen(
+                        selectedValue: String,
+                        finalChoice: Boolean,
+                    ): PopupStep<*>? {
+                        if (finalChoice) {
+                            when (selectedValue) {
+                                "Copy File Name" -> {
+                                    copyToClipboard(file.name)
+                                    showCopiedToast("File Name", file.name)
                                 }
-                                copyToClipboard(relativePath)
-                                showCopiedToast("Relative Path", relativePath)
-                            }
 
-                            "Copy Absolute Path" -> {
-                                copyToClipboard(file.path)
-                                showCopiedToast("Absolute Path", file.path)
+                                "Copy Relative Path" -> {
+                                    val project = editor.project
+                                    val relativePath =
+                                        if (project != null) {
+                                            val projectBaseDir = project.guessProjectDir()
+                                            if (projectBaseDir != null) {
+                                                VfsUtil.getRelativePath(file, projectBaseDir, '/')
+                                                    ?: file.path
+                                            } else {
+                                                file.path
+                                            }
+                                        } else {
+                                            file.path
+                                        }
+                                    copyToClipboard(relativePath)
+                                    showCopiedToast("Relative Path", relativePath)
+                                }
+
+                                "Copy Absolute Path" -> {
+                                    copyToClipboard(file.path)
+                                    showCopiedToast("Absolute Path", file.path)
+                                }
                             }
                         }
+                        return null
                     }
-                    return null
-                }
-            }
-        )
+                },
+            )
 
         // Show the popup at the mouse position
         popup.show(RelativePoint(this, Point(e.x, e.y)))
@@ -825,14 +916,17 @@ class FilenameOverlay(
                 x = visibleArea.x + hMargin
                 y = visibleArea.y + vMargin
             }
+
             OverlayPosition.TOP_RIGHT -> {
                 x = visibleArea.x + visibleArea.width - preferredSize.width - hMargin
                 y = visibleArea.y + vMargin
             }
+
             OverlayPosition.BOTTOM_LEFT -> {
                 x = visibleArea.x + hMargin
                 y = visibleArea.y + visibleArea.height - preferredSize.height - vMargin
             }
+
             OverlayPosition.BOTTOM_RIGHT -> {
                 x = visibleArea.x + visibleArea.width - preferredSize.width - hMargin
                 y = visibleArea.y + visibleArea.height - preferredSize.height - vMargin
@@ -892,11 +986,18 @@ class FilenameOverlay(
         // This accounts for all rendering details including kerning, ligatures, etc.
         val img = BufferedImage(1, 1, BufferedImage.TYPE_INT_ARGB)
         val g2d = img.createGraphics()
-        g2d.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON)
-        g2d.setRenderingHint(RenderingHints.KEY_FRACTIONALMETRICS, RenderingHints.VALUE_FRACTIONALMETRICS_ON)
+        g2d.setRenderingHint(
+            RenderingHints.KEY_TEXT_ANTIALIASING,
+            RenderingHints.VALUE_TEXT_ANTIALIAS_ON,
+        )
+        g2d.setRenderingHint(
+            RenderingHints.KEY_FRACTIONALMETRICS,
+            RenderingHints.VALUE_FRACTIONALMETRICS_ON,
+        )
         g2d.font = baseFont
 
-        val textLayout = java.awt.font.TextLayout(effectiveDisplayName, baseFont, g2d.fontRenderContext)
+        val textLayout =
+            java.awt.font.TextLayout(effectiveDisplayName, baseFont, g2d.fontRenderContext)
         val textBounds = textLayout.bounds
         g2d.dispose()
 
@@ -932,14 +1033,18 @@ class FilenameOverlay(
         calculatedWidth += padding
 
         val height =
-            padding * 2 + maxOf(textHeight, iconHeight, if (isModified) modifiedDotSize else 0, gitStatsIconSize)
+            padding * 2 +
+                maxOf(
+                    textHeight,
+                    iconHeight,
+                    if (isModified) modifiedDotSize else 0,
+                    gitStatsIconSize,
+                )
 
         return Dimension(calculatedWidth, height)
     }
 
-    override fun getPreferredSize(): Dimension {
-        return calculatePreferredSize()
-    }
+    override fun getPreferredSize(): Dimension = calculatePreferredSize()
 
     override fun paintComponent(g: Graphics) {
         super.paintComponent(g)
@@ -948,7 +1053,7 @@ class FilenameOverlay(
         g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON)
         g2d.setRenderingHint(
             RenderingHints.KEY_TEXT_ANTIALIASING,
-            RenderingHints.VALUE_TEXT_ANTIALIAS_ON
+            RenderingHints.VALUE_TEXT_ANTIALIAS_ON,
         )
 
         // Draw rounded rectangle background - use editor background but darker
@@ -956,38 +1061,47 @@ class FilenameOverlay(
         val darkerBackground =
             darkenColor(editorBackground, 0.80f) // 80% of original brightness (20% darker)
 
+        // Slight transparency (alpha = 230)
         @Suppress("UseJBColor") // Color is dynamically calculated from theme-aware editor background
-        val backgroundColor = Color(
-            darkerBackground.red,
-            darkerBackground.green,
-            darkerBackground.blue,
-            230 // Slight transparency
-        )
+        val backgroundColor =
+            Color(
+                darkerBackground.red,
+                darkerBackground.green,
+                darkerBackground.blue,
+                230,
+            )
         g2d.color = backgroundColor
         g2d.fillRoundRect(0, 0, width, height, cornerRadius, cornerRadius)
 
         // Draw border - use user-configured color if focused, gray otherwise
-        g2d.color = if (isEditorFocused) {
-            val settings = FilenameOverlaySettings.getInstance()
-            JBColor(
-                settings.getFocusedBorderColorLight(),
-                settings.getFocusedBorderColorDark()
-            )
-        } else {
-            JBColor(
-                Color(200, 200, 200, 255), // Light mode: light gray border
-                Color(100, 100, 100, 255)  // Dark mode: medium gray border
-            )
-        }
+        g2d.color =
+            if (isEditorFocused) {
+                val settings = FilenameOverlaySettings.getInstance()
+                JBColor(
+                    settings.getFocusedBorderColorLight(),
+                    settings.getFocusedBorderColorDark(),
+                )
+            } else {
+                // Light mode: light gray border, Dark mode: medium gray border
+                JBColor(
+                    Color(200, 200, 200, 255),
+                    Color(100, 100, 100, 255),
+                )
+            }
         g2d.drawRoundRect(0, 0, width - 1, height - 1, cornerRadius, cornerRadius)
 
         // Save original clip and set clip region to prevent content from overflowing the rounded rectangle
         val originalClip = g2d.clip
-        g2d.clip(java.awt.geom.RoundRectangle2D.Float(
-            0f, 0f,
-            width.toFloat(), height.toFloat(),
-            cornerRadius.toFloat(), cornerRadius.toFloat()
-        ))
+        g2d.clip(
+            java.awt.geom.RoundRectangle2D.Float(
+                0f,
+                0f,
+                width.toFloat(),
+                height.toFloat(),
+                cornerRadius.toFloat(),
+                cornerRadius.toFloat(),
+            ),
+        )
 
         // Check if document has unsaved changes
         val isModified = FileDocumentManager.getInstance().isDocumentUnsaved(editor.document)
@@ -1029,10 +1143,13 @@ class FilenameOverlay(
         val diffSpace = " "
         val diffLabel = "(DIFF)"
         val diffSpaceWidth = if (isDiffMode) metrics.stringWidth(diffSpace) else 0
-        val diffLabelWidth = if (isDiffMode) {
-            val diffLayout = java.awt.font.TextLayout(diffLabel, font, g2d.fontRenderContext)
-            kotlin.math.ceil(diffLayout.advance).toInt()
-        } else 0
+        val diffLabelWidth =
+            if (isDiffMode) {
+                val diffLayout = java.awt.font.TextLayout(diffLabel, font, g2d.fontRenderContext)
+                kotlin.math.ceil(diffLayout.advance).toInt()
+            } else {
+                0
+            }
 
         val totalTextWidth = filenameWidth + diffSpaceWidth + diffLabelWidth
 
@@ -1046,7 +1163,8 @@ class FilenameOverlay(
         // Store diff suffix bounds if in diff mode (excludes leading space)
         if (isDiffMode) {
             val diffLabelX = textX + filenameWidth + diffSpaceWidth
-            diffSuffixBounds = Rectangle(diffLabelX, (height - textHeight) / 2, diffLabelWidth, textHeight)
+            diffSuffixBounds =
+                Rectangle(diffLabelX, (height - textHeight) / 2, diffLabelWidth, textHeight)
         } else {
             diffSuffixBounds = null
         }
@@ -1054,17 +1172,18 @@ class FilenameOverlay(
         // Draw hover highlight on filename text if hovering
         if (isHoveringText) {
             val highlightPadding = JBUI.scale(2)
-            g2d.color = getContrastingTextColor(editorBackground).let { textColor ->
-                @Suppress("UseJBColor")
-                Color(textColor.red, textColor.green, textColor.blue, 40)
-            }
+            g2d.color =
+                getContrastingTextColor(editorBackground).let { textColor ->
+                    @Suppress("UseJBColor")
+                    Color(textColor.red, textColor.green, textColor.blue, 40)
+                }
             g2d.fillRoundRect(
                 textX - highlightPadding,
                 (height - textHeight) / 2 - highlightPadding,
                 filenameWidth + highlightPadding * 2,
                 textHeight + highlightPadding * 2,
                 JBUI.scale(4),
-                JBUI.scale(4)
+                JBUI.scale(4),
             )
         }
 
@@ -1072,17 +1191,18 @@ class FilenameOverlay(
         if (isDiffMode && isHoveringDiffSuffix) {
             val highlightPadding = JBUI.scale(2)
             val diffLabelX = textX + filenameWidth + diffSpaceWidth
-            g2d.color = getContrastingTextColor(editorBackground).let { textColor ->
-                @Suppress("UseJBColor")
-                Color(textColor.red, textColor.green, textColor.blue, 40)
-            }
+            g2d.color =
+                getContrastingTextColor(editorBackground).let { textColor ->
+                    @Suppress("UseJBColor")
+                    Color(textColor.red, textColor.green, textColor.blue, 40)
+                }
             g2d.fillRoundRect(
                 diffLabelX - highlightPadding,
                 (height - textHeight) / 2 - highlightPadding,
                 diffLabelWidth + highlightPadding * 2,
                 textHeight + highlightPadding * 2,
                 JBUI.scale(4),
-                JBUI.scale(4)
+                JBUI.scale(4),
             )
         }
 
@@ -1109,17 +1229,18 @@ class FilenameOverlay(
             // Draw hover highlight on git stats if hovering
             if (isHoveringGitStats) {
                 val highlightPadding = JBUI.scale(2)
-                g2d.color = getContrastingTextColor(editorBackground).let { textColor ->
-                    @Suppress("UseJBColor")
-                    Color(textColor.red, textColor.green, textColor.blue, 40)
-                }
+                g2d.color =
+                    getContrastingTextColor(editorBackground).let { textColor ->
+                        @Suppress("UseJBColor")
+                        Color(textColor.red, textColor.green, textColor.blue, 40)
+                    }
                 g2d.fillRoundRect(
                     statsStartX - highlightPadding,
                     (height - textHeight) / 2 - highlightPadding,
                     statsWidth + highlightPadding * 2,
                     textHeight + highlightPadding * 2,
                     JBUI.scale(4),
-                    JBUI.scale(4)
+                    JBUI.scale(4),
                 )
             }
 
@@ -1131,14 +1252,22 @@ class FilenameOverlay(
             var hasDrawnItem = false
 
             // Helper to draw a stat item (icon + number)
-            fun drawStatItem(value: Int, icon: Icon) {
+            fun drawStatItem(
+                value: Int,
+                icon: Icon,
+            ) {
                 if (value == 0) return
                 if (hasDrawnItem) {
                     statsX += gitStatsItemSpacing
                 }
 
                 // Scale icon to match badge size
-                val scaledIcon = IconUtil.scale(icon, this@FilenameOverlay, gitStatsIconSize.toFloat() / icon.iconWidth.toFloat())
+                val scaledIcon =
+                    IconUtil.scale(
+                        icon,
+                        this@FilenameOverlay,
+                        gitStatsIconSize.toFloat() / icon.iconWidth.toFloat(),
+                    )
                 val iconY = (height - scaledIcon.iconHeight) / 2
 
                 // Draw the icon
@@ -1169,7 +1298,12 @@ class FilenameOverlay(
                 if (hasDrawnItem) {
                     statsX += gitStatsItemSpacing
                 }
-                val scaledIcon = IconUtil.scale(gitStatsUntrackedIcon, this@FilenameOverlay, gitStatsIconSize.toFloat() / gitStatsUntrackedIcon.iconWidth.toFloat())
+                val scaledIcon =
+                    IconUtil.scale(
+                        gitStatsUntrackedIcon,
+                        this@FilenameOverlay,
+                        gitStatsIconSize.toFloat() / gitStatsUntrackedIcon.iconWidth.toFloat(),
+                    )
                 val iconY = (height - scaledIcon.iconHeight) / 2
                 scaledIcon.paintIcon(this@FilenameOverlay, g2d, statsX, iconY)
                 statsX += scaledIcon.iconWidth
@@ -1182,7 +1316,8 @@ class FilenameOverlay(
             statsX += metrics.stringWidth(")")
 
             // Store git stats bounds for click detection
-            gitStatsBounds = Rectangle(statsStartX, (height - textHeight) / 2, statsX - statsStartX, textHeight)
+            gitStatsBounds =
+                Rectangle(statsStartX, (height - textHeight) / 2, statsX - statsStartX, textHeight)
         } else {
             // No git stats to show, clear bounds
             gitStatsBounds = null
@@ -1196,30 +1331,45 @@ class FilenameOverlay(
             val gradientEnd = gradientStart + gradientWidth
 
             // Determine the base color for the gradient based on hover state
-            val baseColor = if (isHoveringText) {
-                // When hovering text, gradient should fade from transparent to the highlight color
-                getContrastingTextColor(editorBackground).let { textColor ->
+            val baseColor =
+                if (isHoveringText) {
+                    // When hovering text, gradient should fade from transparent to the highlight color
+                    getContrastingTextColor(editorBackground).let { textColor ->
+                        @Suppress("UseJBColor")
+                        Color(
+                            textColor.red,
+                            textColor.green,
+                            textColor.blue,
+                            80,
+                        ) // Increased opacity
+                    }
+                } else {
+                    // When not hovering, use a more opaque version of the background
                     @Suppress("UseJBColor")
-                    Color(textColor.red, textColor.green, textColor.blue, 80) // Increased opacity
+                    Color(
+                        darkerBackground.red,
+                        darkerBackground.green,
+                        darkerBackground.blue,
+                        255,
+                    ) // Fully opaque
                 }
-            } else {
-                // When not hovering, use a more opaque version of the background
-                @Suppress("UseJBColor")
-                Color(darkerBackground.red, darkerBackground.green, darkerBackground.blue, 255) // Fully opaque
-            }
 
-            val gradient = java.awt.GradientPaint(
-                gradientStart.toFloat(), 0f,
-                baseColor, // Opaque on the left (near icon)
-                gradientEnd.toFloat(), 0f,
-                Color(baseColor.red, baseColor.green, baseColor.blue, 0) // Transparent on the right
-            )
+            // Gradient: opaque on the left (near icon), transparent on the right
+            val gradient =
+                java.awt.GradientPaint(
+                    gradientStart.toFloat(),
+                    0f,
+                    baseColor,
+                    gradientEnd.toFloat(),
+                    0f,
+                    Color(baseColor.red, baseColor.green, baseColor.blue, 0),
+                )
             g2d.paint = gradient
             g2d.fillRect(
                 gradientStart,
                 (height - textHeight) / 2,
                 gradientWidth,
-                textHeight
+                textHeight,
             )
 
             // Reset paint
@@ -1234,20 +1384,25 @@ class FilenameOverlay(
             val gradientStart = gradientEnd - gradientWidth
 
             // Use the same base color as the left gradient
-            val baseColor = Color(darkerBackground.red, darkerBackground.green, darkerBackground.blue, 255)
+            val baseColor =
+                Color(darkerBackground.red, darkerBackground.green, darkerBackground.blue, 255)
 
-            val gradient = java.awt.GradientPaint(
-                gradientStart.toFloat(), 0f,
-                Color(baseColor.red, baseColor.green, baseColor.blue, 0), // Transparent on the left
-                gradientEnd.toFloat(), 0f,
-                baseColor // Opaque on the right (at edge)
-            )
+            // Gradient: transparent on the left, opaque on the right (at edge)
+            val gradient =
+                java.awt.GradientPaint(
+                    gradientStart.toFloat(),
+                    0f,
+                    Color(baseColor.red, baseColor.green, baseColor.blue, 0),
+                    gradientEnd.toFloat(),
+                    0f,
+                    baseColor,
+                )
             g2d.paint = gradient
             g2d.fillRect(
                 gradientStart,
                 (height - textHeight) / 2,
                 gradientWidth,
-                textHeight
+                textHeight,
             )
 
             // Reset paint
@@ -1259,13 +1414,16 @@ class FilenameOverlay(
         // First, draw a background that extends from the left edge to cover any text
         // This needs to be done before drawing the dot and icon
         val borderWidth = 1
+
+        // Fully opaque background
         @Suppress("UseJBColor")
-        val opaqueBackground = Color(
-            darkerBackground.red,
-            darkerBackground.green,
-            darkerBackground.blue,
-            255 // Fully opaque
-        )
+        val opaqueBackground =
+            Color(
+                darkerBackground.red,
+                darkerBackground.green,
+                darkerBackground.blue,
+                255,
+            )
 
         if (scaledIcon != null) {
             // Calculate how far the background should extend to the right of the icon
@@ -1276,16 +1434,18 @@ class FilenameOverlay(
                 borderWidth,
                 iconY - JBUI.scale(2),
                 backgroundWidth - borderWidth,
-                scaledIcon.iconHeight + JBUI.scale(2) * 2
+                scaledIcon.iconHeight + JBUI.scale(2) * 2,
             )
         }
 
         // Draw blue dot indicator if document is modified (doesn't scroll)
+        // Light mode: blue, Dark mode: lighter blue
         if (isModified) {
-            g2d.color = JBColor(
-                Color(41, 128, 185), // Light mode: blue
-                Color(100, 181, 246) // Dark mode: lighter blue
-            )
+            g2d.color =
+                JBColor(
+                    Color(41, 128, 185),
+                    Color(100, 181, 246),
+                )
             val dotY = (height - modifiedDotSize) / 2
             g2d.fillOval(dotX, dotY, modifiedDotSize, modifiedDotSize)
         }
@@ -1297,28 +1457,31 @@ class FilenameOverlay(
 
             val highlightPadding = JBUI.scale(2)
 
+            // Fully opaque icon background
             @Suppress("UseJBColor")
-            val iconBackground = Color(
-                darkerBackground.red,
-                darkerBackground.green,
-                darkerBackground.blue,
-                255 // Fully opaque
-            )
+            val iconBackground =
+                Color(
+                    darkerBackground.red,
+                    darkerBackground.green,
+                    darkerBackground.blue,
+                    255,
+                )
 
             // Draw hover highlight if hovering over icon
             if (isHoveringIcon) {
                 // Draw hover highlight overlay
-                g2d.color = getContrastingTextColor(editorBackground).let { textColor ->
-                    @Suppress("UseJBColor")
-                    Color(textColor.red, textColor.green, textColor.blue, 40)
-                }
+                g2d.color =
+                    getContrastingTextColor(editorBackground).let { textColor ->
+                        @Suppress("UseJBColor")
+                        Color(textColor.red, textColor.green, textColor.blue, 40)
+                    }
                 g2d.fillRoundRect(
                     iconX - highlightPadding,
                     iconY - highlightPadding,
                     scaledIcon.iconWidth + highlightPadding * 2,
                     scaledIcon.iconHeight + highlightPadding * 2,
                     JBUI.scale(4),
-                    JBUI.scale(4)
+                    JBUI.scale(4),
                 )
 
                 // Draw X symbol over the icon when hovering

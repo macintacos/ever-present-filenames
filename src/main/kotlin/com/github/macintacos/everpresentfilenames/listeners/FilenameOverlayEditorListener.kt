@@ -17,7 +17,6 @@ import javax.swing.Icon
  * The overlay displays the current file's name with its icon at the bottom-right corner.
  */
 class FilenameOverlayEditorListener : EditorFactoryListener {
-
     private val overlayMap = mutableMapOf<Editor, FilenameOverlay>()
 
     // Track pending diff editors to determine which is rightmost
@@ -52,7 +51,10 @@ class FilenameOverlayEditorListener : EditorFactoryListener {
     /**
      * Process a diff editor - only show overlay if it's the rightmost in its diff panel.
      */
-    private fun processPendingDiffEditor(editor: Editor, file: VirtualFile) {
+    private fun processPendingDiffEditor(
+        editor: Editor,
+        file: VirtualFile,
+    ) {
         // Skip if already processed or not showing
         if (overlayMap.containsKey(editor)) return
         if (!editor.component.isShowing) return
@@ -113,7 +115,11 @@ class FilenameOverlayEditorListener : EditorFactoryListener {
     /**
      * Check if two editors share a common ancestor within the given depth.
      */
-    private fun shareCommonAncestor(editor1: Editor, editor2: Editor, maxDepth: Int): Boolean {
+    private fun shareCommonAncestor(
+        editor1: Editor,
+        editor2: Editor,
+        maxDepth: Int,
+    ): Boolean {
         val ancestors1 = mutableSetOf<java.awt.Container>()
         var parent1: java.awt.Container? = editor1.component.parent
         var depth = 0
@@ -139,7 +145,12 @@ class FilenameOverlayEditorListener : EditorFactoryListener {
     /**
      * Creates and registers an overlay for the given editor.
      */
-    private fun createOverlay(editor: Editor, file: VirtualFile, showGitStats: Boolean, isDiffMode: Boolean = false) {
+    private fun createOverlay(
+        editor: Editor,
+        file: VirtualFile,
+        showGitStats: Boolean,
+        isDiffMode: Boolean = false,
+    ) {
         // Get the file icon
         val icon = getFileIcon(editor, file)
 
@@ -178,7 +189,10 @@ class FilenameOverlayEditorListener : EditorFactoryListener {
     /**
      * Gets the icon for the given file.
      */
-    private fun getFileIcon(editor: Editor, file: VirtualFile): Icon? {
+    private fun getFileIcon(
+        editor: Editor,
+        file: VirtualFile,
+    ): Icon? {
         val project = editor.project ?: return file.fileType.icon
 
         // Try to get the PSI file for better icon resolution

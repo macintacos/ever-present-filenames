@@ -11,14 +11,14 @@ import java.awt.Color
 enum class FontSource {
     UI_FONT,
     EDITOR_FONT,
-    CUSTOM_FONT
+    CUSTOM_FONT,
 }
 
 enum class OverlayPosition {
     TOP_LEFT,
     TOP_RIGHT,
     BOTTOM_LEFT,
-    BOTTOM_RIGHT
+    BOTTOM_RIGHT,
 }
 
 interface SettingsChangeListener {
@@ -31,10 +31,9 @@ interface SettingsChangeListener {
 
 @State(
     name = "FilenameOverlaySettings",
-    storages = [Storage("FilenameOverlaySettings.xml")]
+    storages = [Storage("FilenameOverlaySettings.xml")],
 )
 class FilenameOverlaySettings : PersistentStateComponent<FilenameOverlaySettings.State> {
-
     private var myState = State()
 
     class State {
@@ -62,17 +61,14 @@ class FilenameOverlaySettings : PersistentStateComponent<FilenameOverlaySettings
         var verticalMargin: Int = 20
     }
 
-    override fun getState(): State {
-        return myState
-    }
+    override fun getState(): State = myState
 
     override fun loadState(state: State) {
         XmlSerializerUtil.copyBean(state, myState)
     }
 
-    fun getFocusedBorderColorLight(): Color {
-        return Color(myState.focusedBorderColorRed, myState.focusedBorderColorGreen, myState.focusedBorderColorBlue)
-    }
+    fun getFocusedBorderColorLight(): Color =
+        Color(myState.focusedBorderColorRed, myState.focusedBorderColorGreen, myState.focusedBorderColorBlue)
 
     fun setFocusedBorderColorLight(color: Color) {
         myState.focusedBorderColorRed = color.red
@@ -80,9 +76,8 @@ class FilenameOverlaySettings : PersistentStateComponent<FilenameOverlaySettings
         myState.focusedBorderColorBlue = color.blue
     }
 
-    fun getFocusedBorderColorDark(): Color {
-        return Color(myState.focusedBorderColorDarkRed, myState.focusedBorderColorDarkGreen, myState.focusedBorderColorDarkBlue)
-    }
+    fun getFocusedBorderColorDark(): Color =
+        Color(myState.focusedBorderColorDarkRed, myState.focusedBorderColorDarkGreen, myState.focusedBorderColorDarkBlue)
 
     fun setFocusedBorderColorDark(color: Color) {
         myState.focusedBorderColorDarkRed = color.red
@@ -90,81 +85,65 @@ class FilenameOverlaySettings : PersistentStateComponent<FilenameOverlaySettings
         myState.focusedBorderColorDarkBlue = color.blue
     }
 
-    fun getFontSource(): FontSource {
-        return try {
+    fun getFontSource(): FontSource =
+        try {
             FontSource.valueOf(myState.fontSource)
         } catch (e: IllegalArgumentException) {
             FontSource.UI_FONT
         }
-    }
 
     fun setFontSource(source: FontSource) {
         myState.fontSource = source.name
     }
 
-    fun getCustomFontFamily(): String {
-        return myState.customFontFamily
-    }
+    fun getCustomFontFamily(): String = myState.customFontFamily
 
     fun setCustomFontFamily(family: String) {
         myState.customFontFamily = family
     }
 
-    fun getFontSize(): Int {
-        return myState.fontSize
-    }
+    fun getFontSize(): Int = myState.fontSize
 
     fun setFontSize(size: Int) {
         myState.fontSize = size
     }
 
-    fun isProjectViewToggleEnabled(): Boolean {
-        return myState.enableProjectViewToggle
-    }
+    fun isProjectViewToggleEnabled(): Boolean = myState.enableProjectViewToggle
 
     fun setProjectViewToggleEnabled(enabled: Boolean) {
         myState.enableProjectViewToggle = enabled
     }
 
-    fun isGitLineStatsEnabled(): Boolean {
-        return myState.enableGitLineStats
-    }
+    fun isGitLineStatsEnabled(): Boolean = myState.enableGitLineStats
 
     fun setGitLineStatsEnabled(enabled: Boolean) {
         myState.enableGitLineStats = enabled
     }
 
-    fun getOverlayPosition(): OverlayPosition {
-        return try {
+    fun getOverlayPosition(): OverlayPosition =
+        try {
             OverlayPosition.valueOf(myState.overlayPosition)
         } catch (e: IllegalArgumentException) {
             OverlayPosition.BOTTOM_RIGHT
         }
-    }
 
     fun setOverlayPosition(position: OverlayPosition) {
         myState.overlayPosition = position.name
     }
 
-    fun getHorizontalMargin(): Int {
-        return myState.horizontalMargin
-    }
+    fun getHorizontalMargin(): Int = myState.horizontalMargin
 
     fun setHorizontalMargin(margin: Int) {
         myState.horizontalMargin = margin
     }
 
-    fun getVerticalMargin(): Int {
-        return myState.verticalMargin
-    }
+    fun getVerticalMargin(): Int = myState.verticalMargin
 
     fun setVerticalMargin(margin: Int) {
         myState.verticalMargin = margin
     }
 
     companion object {
-        fun getInstance(): FilenameOverlaySettings {
-            return ApplicationManager.getApplication().getService(FilenameOverlaySettings::class.java)
-        }
+        fun getInstance(): FilenameOverlaySettings = ApplicationManager.getApplication().getService(FilenameOverlaySettings::class.java)
     }
 }

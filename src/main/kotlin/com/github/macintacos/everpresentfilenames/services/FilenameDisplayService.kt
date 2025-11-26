@@ -21,7 +21,6 @@ import com.intellij.openapi.vfs.newvfs.events.VFilePropertyChangeEvent
  */
 @Service(Service.Level.APP)
 class FilenameDisplayService {
-
     private val editorFileMap = mutableMapOf<Editor, VirtualFile>()
     private val displayNameListeners = mutableMapOf<Editor, (String) -> Unit>()
 
@@ -29,48 +28,59 @@ class FilenameDisplayService {
         val connection = ApplicationManager.getApplication().messageBus.connect()
 
         // Listen for file system changes (moves, renames)
-        connection.subscribe(VirtualFileManager.VFS_CHANGES, object : BulkFileListener {
-            override fun after(events: List<VFileEvent>) {
-                var needsRecalculation = false
+        connection.subscribe(
+            VirtualFileManager.VFS_CHANGES,
+            object : BulkFileListener {
+                override fun after(events: List<VFileEvent>) {
+                    var needsRecalculation = false
 
-                for (event in events) {
-                    // Check if the event affects any of our tracked files
-                    when (event) {
-                        is VFileMoveEvent -> {
-                            // File was moved to a different directory
-                            if (editorFileMap.values.contains(event.file)) {
-                                needsRecalculation = true
-                            }
-                        }
-                        is VFilePropertyChangeEvent -> {
-                            // File property changed (e.g., renamed)
-                            if (event.propertyName == VirtualFile.PROP_NAME) {
+                    for (event in events) {
+                        // Check if the event affects any of our tracked files
+                        when (event) {
+                            is VFileMoveEvent -> {
+                                // File was moved to a different directory
                                 if (editorFileMap.values.contains(event.file)) {
                                     needsRecalculation = true
                                 }
                             }
+
+                            is VFilePropertyChangeEvent -> {
+                                // File property changed (e.g., renamed)
+                                if (event.propertyName == VirtualFile.PROP_NAME) {
+                                    if (editorFileMap.values.contains(event.file)) {
+                                        needsRecalculation = true
+                                    }
+                                }
+                            }
                         }
                     }
-                }
 
-                if (needsRecalculation) {
-                    recalculateAllDisplayNames()
+                    if (needsRecalculation) {
+                        recalculateAllDisplayNames()
+                    }
                 }
-            }
-        })
+            },
+        )
 
         // Listen for file editor selection changes (tab switches, split changes)
-        connection.subscribe(FileEditorManagerListener.FILE_EDITOR_MANAGER, object : FileEditorManagerListener {
-            override fun selectionChanged(event: com.intellij.openapi.fileEditor.FileEditorManagerEvent) {
-                recalculateAllDisplayNames()
-            }
-        })
+        connection.subscribe(
+            FileEditorManagerListener.FILE_EDITOR_MANAGER,
+            object : FileEditorManagerListener {
+                override fun selectionChanged(event: com.intellij.openapi.fileEditor.FileEditorManagerEvent) {
+                    recalculateAllDisplayNames()
+                }
+            },
+        )
     }
 
     /**
      * Registers an editor with its file and a callback to update the display name
      */
-    fun registerEditor(editor: Editor, file: VirtualFile, onDisplayNameChanged: (String) -> Unit) {
+    fun registerEditor(
+        editor: Editor,
+        file: VirtualFile,
+        onDisplayNameChanged: (String) -> Unit,
+    ) {
         editorFileMap[editor] = file
         displayNameListeners[editor] = onDisplayNameChanged
         recalculateAllDisplayNames()
@@ -123,9 +133,10 @@ class FilenameDisplayService {
      */
     private fun recalculateAllDisplayNames() {
         // Filter to only visible editors
-        val visibleEditors = editorFileMap.entries.filter { (editor, _) ->
-            isEditorVisible(editor)
-        }
+        val visibleEditors =
+            editorFileMap.entries.filter { (editor, _) ->
+                isEditorVisible(editor)
+            }
 
         // Group visible files by their filename
         val filesByName = visibleEditors.groupBy { it.value.name }
@@ -148,9 +159,10 @@ class FilenameDisplayService {
         }
 
         // For editors that are registered but not visible, just show the filename
-        val invisibleEditors = editorFileMap.entries.filter { (editor, _) ->
-            !isEditorVisible(editor)
-        }
+        val invisibleEditors =
+            editorFileMap.entries.filter { (editor, _) ->
+                !isEditorVisible(editor)
+            }
         invisibleEditors.forEach { (editor, file) ->
             displayNameListeners[editor]?.invoke(file.name)
         }
@@ -159,7 +171,10 @@ class FilenameDisplayService {
     /**
      * Calculates distinguishing paths for files with the same name
      */
-    private fun calculateDistinguishingPaths(files: List<VirtualFile>, project: Project?): List<String> {
+    private fun calculateDistinguishingPaths(
+        files: List<VirtualFile>,
+        project: Project?,
+    ): List<String> {
         if (files.isEmpty()) return emptyList()
         if (files.size == 1) return listOf(files.first().name)
 
@@ -173,15 +188,16 @@ class FilenameDisplayService {
         }
 
         // Get path components for each file (excluding the filename itself)
-        val pathComponents = files.map { file ->
-            val pathParts = mutableListOf<String>()
-            var current = file.parent
-            while (current != null) {
-                pathParts.add(0, current.name) // Add to front to maintain order
-                current = current.parent
+        val pathComponents =
+            files.map { file ->
+                val pathParts = mutableListOf<String>()
+                var current = file.parent
+                while (current != null) {
+                    pathParts.add(0, current.name) // Add to front to maintain order
+                    current = current.parent
+                }
+                pathParts
             }
-            pathParts
-        }
 
         // Find the common ancestor path length
         val minPathLength = pathComponents.minOfOrNull { it.size } ?: 0
@@ -223,35 +239,36 @@ class FilenameDisplayService {
                 }
 
                 // Determine the appropriate prefix
-                val pathPrefix = when {
-                    // If the parent of the first component is the project root itself
-                    projectBasePath != null && currentDir?.parent?.path == projectBasePath -> {
-                        // Don't use any prefix - first component is direct child of project root
-                        componentsToShow.joinToString("/")
-                    }
-                    // If the first component IS the project root (closest matched directory is project root)
-                    projectBasePath != null && currentDir?.path == projectBasePath -> {
-                        // Use "ROOT/" prefix and drop the project directory name from componentsToShow
-                        val pathAfterRoot = componentsToShow.drop(1).joinToString("/")
-                        if (pathAfterRoot.isEmpty()) {
-                            "ROOT"
-                        } else {
-                            "ROOT/$pathAfterRoot"
+                val pathPrefix =
+                    when {
+                        // If the parent of the first component is the project root itself
+                        projectBasePath != null && currentDir?.parent?.path == projectBasePath -> {
+                            // Don't use any prefix - first component is direct child of project root
+                            componentsToShow.joinToString("/")
+                        }
+
+                        // If the first component IS the project root (closest matched directory is project root)
+                        projectBasePath != null && currentDir?.path == projectBasePath -> {
+                            // Use "ROOT/" prefix and drop the project directory name from componentsToShow
+                            val pathAfterRoot = componentsToShow.drop(1).joinToString("/")
+                            if (pathAfterRoot.isEmpty()) {
+                                "ROOT"
+                            } else {
+                                "ROOT/$pathAfterRoot"
+                            }
+                        }
+
+                        else -> {
+                            // Use ".../" prefix for deeper paths
+                            ".../" + componentsToShow.joinToString("/")
                         }
                     }
-                    else -> {
-                        // Use ".../" prefix for deeper paths
-                        ".../" + componentsToShow.joinToString("/")
-                    }
-                }
                 "$pathPrefix/$filename"
             }
         }
     }
 
     companion object {
-        fun getInstance(): FilenameDisplayService {
-            return ApplicationManager.getApplication().getService(FilenameDisplayService::class.java)
-        }
+        fun getInstance(): FilenameDisplayService = ApplicationManager.getApplication().getService(FilenameDisplayService::class.java)
     }
 }
