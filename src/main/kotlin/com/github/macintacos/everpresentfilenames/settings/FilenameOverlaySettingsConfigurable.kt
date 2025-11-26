@@ -35,6 +35,7 @@ class FilenameOverlaySettingsConfigurable : Configurable {
     private var bottomRightRadio: JRadioButton? = null
     private var horizontalMarginSpinner: JSpinner? = null
     private var verticalMarginSpinner: JSpinner? = null
+    private var stickyLinesWarningLabel: JLabel? = null
 
     override fun getDisplayName(): String {
         return "Ever Present Filenames"
@@ -153,6 +154,85 @@ class FilenameOverlaySettingsConfigurable : Configurable {
         helperText.font = helperText.font.deriveFont(helperText.font.size2D - 1f)
         settingsPanel!!.add(helperText, gbc)
 
+        // Sticky Lines warning for top positions
+        gbc.gridy++
+        gbc.gridwidth = 2
+        gbc.insets = JBUI.insets(10, 10, 5, 5)
+        gbc.fill = GridBagConstraints.HORIZONTAL
+
+        // Create warning panel with proper text wrapping
+        val warningPanel = JPanel(GridBagLayout())
+        val warningGbc = GridBagConstraints().apply {
+            gridx = 0
+            gridy = 0
+            anchor = GridBagConstraints.WEST
+            fill = GridBagConstraints.HORIZONTAL
+            weightx = 1.0
+        }
+
+        // Warning line (red text with blue link for "Sticky Lines")
+        val warningLine = JEditorPane("text/html",
+            """<html><body style="font-family: ${UIManager.getFont("Label.font")?.family ?: "Dialog"}; font-size: ${UIManager.getFont("Label.font")?.size ?: 12}pt; margin: 0; padding: 0;">
+            <span style="color: #CC0000; font-weight: bold;">Warning:</span>
+            <span style="color: #CC0000;">Top positions may cause visual glitches when </span><a href="https://www.jetbrains.com/help/idea/sticky-lines.html" style="color: #589DF6;">Sticky Lines</a><span style="color: #CC0000;"> is enabled.</span>
+            </body></html>"""
+        )
+        warningLine.isEditable = false
+        warningLine.isOpaque = false
+        warningLine.addHyperlinkListener { e ->
+            if (e.eventType == javax.swing.event.HyperlinkEvent.EventType.ACTIVATED) {
+                try {
+                    java.awt.Desktop.getDesktop().browse(e.url.toURI())
+                } catch (ex: Exception) {
+                    // Ignore if browser can't be opened
+                }
+            }
+        }
+        warningPanel.add(warningLine, warningGbc)
+
+        // Explanation text (normal color with blue link at end)
+        warningGbc.gridy = 1
+        warningGbc.insets = JBUI.insets(5, 0, 0, 0)
+        val explanationText = JEditorPane("text/html",
+            """<html><body style="font-family: ${UIManager.getFont("Label.font")?.family ?: "Dialog"}; font-size: ${UIManager.getFont("Label.font")?.size ?: 12}pt; margin: 0; padding: 0; width: 450px;">
+            The overlay can scroll out of view when scrolling through the editor with this setting on.
+            To avoid this, either use a bottom position for the overlay, or disable Sticky Lines in your IDE settings.
+            <a href="https://www.jetbrains.com/help/idea/sticky-lines.html" style="color: #589DF6;">Learn how to disable Sticky Lines.</a>
+            </body></html>"""
+        )
+        explanationText.isEditable = false
+        explanationText.isOpaque = false
+        explanationText.addHyperlinkListener { e ->
+            if (e.eventType == javax.swing.event.HyperlinkEvent.EventType.ACTIVATED) {
+                try {
+                    java.awt.Desktop.getDesktop().browse(e.url.toURI())
+                } catch (ex: Exception) {
+                    // Ignore if browser can't be opened
+                }
+            }
+        }
+        warningPanel.add(explanationText, warningGbc)
+
+        stickyLinesWarningLabel = JLabel() // Dummy label to track visibility state
+        stickyLinesWarningLabel!!.isVisible = false
+
+        warningPanel.isVisible = false // Hidden by default
+        settingsPanel!!.add(warningPanel, gbc)
+        gbc.fill = GridBagConstraints.NONE
+
+        // Store reference to warning panel for visibility toggling
+        val warningPanelRef = warningPanel
+
+        // Add listeners to radio buttons to show/hide warning
+        val updateWarningVisibility = {
+            val isTopPosition = topLeftRadio!!.isSelected || topRightRadio!!.isSelected
+            warningPanelRef.isVisible = isTopPosition
+        }
+        topLeftRadio!!.addActionListener { updateWarningVisibility() }
+        topRightRadio!!.addActionListener { updateWarningVisibility() }
+        bottomLeftRadio!!.addActionListener { updateWarningVisibility() }
+        bottomRightRadio!!.addActionListener { updateWarningVisibility() }
+
         // Load current position settings
         when (settings.getOverlayPosition()) {
             OverlayPosition.TOP_LEFT -> topLeftRadio!!.isSelected = true
@@ -162,6 +242,9 @@ class FilenameOverlaySettingsConfigurable : Configurable {
         }
         horizontalMarginSpinner!!.value = settings.getHorizontalMargin()
         verticalMarginSpinner!!.value = settings.getVerticalMargin()
+
+        // Update warning visibility based on loaded settings
+        updateWarningVisibility()
     }
 
     private fun createCornerPanel(): JPanel {
