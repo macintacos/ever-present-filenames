@@ -134,6 +134,23 @@ tasks {
     publishPlugin {
         dependsOn(patchChangelog)
     }
+
+    prepareSandbox {
+        doLast {
+            // destinationDir is the plugins dir, go up to sandbox root then into config
+            val optionsDir = destinationDir.parentFile.resolve("config/options")
+            optionsDir.mkdirs()
+
+            // Set "Tab Placement" to "None" in the sandbox IDE
+            optionsDir.resolve("ui.lnf.xml").writeText("""
+                <application>
+                  <component name="UISettings">
+                    <option name="EDITOR_TAB_PLACEMENT" value="0" />
+                  </component>
+                </application>
+            """.trimIndent())
+        }
+    }
 }
 
 intellijPlatformTesting {
