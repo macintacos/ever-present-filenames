@@ -1,3 +1,5 @@
+@file:Suppress("ktlint:standard:no-wildcard-imports")
+
 package com.github.macintacos.everpresentfilenames.settings
 
 import com.intellij.openapi.options.Configurable
@@ -12,6 +14,18 @@ import javax.swing.*
 
 class FilenameOverlaySettingsConfigurable : Configurable {
     private var settingsPanel: JPanel? = null
+
+    // Position settings UI components
+    private var positionButtonGroup: ButtonGroup? = null
+    private var topLeftRadio: JRadioButton? = null
+    private var topRightRadio: JRadioButton? = null
+    private var bottomLeftRadio: JRadioButton? = null
+    private var bottomRightRadio: JRadioButton? = null
+    private var horizontalMarginSpinner: JSpinner? = null
+    private var verticalMarginSpinner: JSpinner? = null
+    private var stickyLinesWarningLabel: JLabel? = null
+
+    // Color settings UI components
     private var lightModeColorButton: JButton? = null
     private var darkModeColorButton: JButton? = null
     private var lightModeColor: Color? = null
@@ -25,16 +39,6 @@ class FilenameOverlaySettingsConfigurable : Configurable {
     // Behavior settings UI components
     private var projectViewToggleCheckbox: JCheckBox? = null
     private var gitLineStatsCheckbox: JCheckBox? = null
-
-    // Position settings UI components
-    private var positionButtonGroup: ButtonGroup? = null
-    private var topLeftRadio: JRadioButton? = null
-    private var topRightRadio: JRadioButton? = null
-    private var bottomLeftRadio: JRadioButton? = null
-    private var bottomRightRadio: JRadioButton? = null
-    private var horizontalMarginSpinner: JSpinner? = null
-    private var verticalMarginSpinner: JSpinner? = null
-    private var stickyLinesWarningLabel: JLabel? = null
 
     override fun getDisplayName(): String = "Ever Present Filenames"
 
@@ -155,7 +159,8 @@ class FilenameOverlaySettingsConfigurable : Configurable {
         gbc.gridy++
         gbc.gridwidth = 2
         gbc.insets = JBUI.insets(2, 10, 5, 5)
-        val helperText = JBLabel("Margins are applied from the closest edges of the editor based on the chosen position.")
+        val helperText =
+            JBLabel("Margins are applied from the closest edges of the editor based on the chosen position.")
         helperText.foreground = JBColor.gray
         helperText.font = helperText.font.deriveFont(helperText.font.size2D - 1f)
         settingsPanel!!.add(helperText, gbc)
@@ -181,10 +186,12 @@ class FilenameOverlaySettingsConfigurable : Configurable {
         val warningLine =
             JEditorPane(
                 "text/html",
-                """<html><body style="font-family: ${UIManager
-                    .getFont(
-                        "Label.font",
-                    )?.family ?: "Dialog"}; font-size: ${UIManager.getFont("Label.font")?.size ?: 12}pt; margin: 0; padding: 0;">
+                """<html><body style="font-family: ${
+                    UIManager
+                        .getFont(
+                            "Label.font",
+                        )?.family ?: "Dialog"
+                }; font-size: ${UIManager.getFont("Label.font")?.size ?: 12}pt; margin: 0; padding: 0;">
             <span style="color: #CC0000; font-weight: bold;">Warning:</span>
             <span style="color: #CC0000;">Top positions may cause visual glitches when </span><a href="https://www.jetbrains.com/help/idea/sticky-lines.html" style="color: #589DF6;">Sticky Lines</a><span style="color: #CC0000;"> is enabled.</span>
             </body></html>""",
@@ -210,13 +217,17 @@ class FilenameOverlaySettingsConfigurable : Configurable {
         val explanationText =
             JEditorPane(
                 "text/html",
-                """<html><body style="font-family: ${UIManager
-                    .getFont(
-                        "Label.font",
-                    )?.family ?: "Dialog"}; font-size: ${UIManager
-                    .getFont(
-                        "Label.font",
-                    )?.size ?: 12}pt; margin: 0; padding: 0; width: 450px;">
+                """<html><body style="font-family: ${
+                    UIManager
+                        .getFont(
+                            "Label.font",
+                        )?.family ?: "Dialog"
+                }; font-size: ${
+                    UIManager
+                        .getFont(
+                            "Label.font",
+                        )?.size ?: 12
+                }pt; margin: 0; padding: 0; width: 450px;">
             The overlay can scroll out of view when scrolling through the editor with this setting on.
             To avoid this, either use a bottom position for the overlay, or disable Sticky Lines in your IDE settings.
             <a href="https://www.jetbrains.com/help/idea/sticky-lines.html" style="color: #589DF6;">Learn how to disable Sticky Lines.</a>
@@ -450,7 +461,8 @@ class FilenameOverlaySettingsConfigurable : Configurable {
         settingsPanel!!.add(fontFamilyLabel, gbc)
 
         gbc.gridx = 1
-        val availableFonts = GraphicsEnvironment.getLocalGraphicsEnvironment().availableFontFamilyNames
+        val availableFonts =
+            GraphicsEnvironment.getLocalGraphicsEnvironment().availableFontFamilyNames
         fontFamilyCombo = JComboBox(availableFonts)
         fontFamilyCombo!!.isEnabled = false
         settingsPanel!!.add(fontFamilyCombo!!, gbc)
@@ -468,7 +480,8 @@ class FilenameOverlaySettingsConfigurable : Configurable {
 
         // Add listener to enable/disable custom font combo based on combo box selection
         val updateFontComboState = {
-            fontFamilyCombo!!.isEnabled = fontSourceCombo!!.selectedIndex == 2 // "Custom Font" is index 2
+            fontFamilyCombo!!.isEnabled =
+                fontSourceCombo!!.selectedIndex == 2 // "Custom Font" is index 2
         }
         fontSourceCombo!!.addActionListener { updateFontComboState() }
 
@@ -500,7 +513,8 @@ class FilenameOverlaySettingsConfigurable : Configurable {
         gbc.gridx = 0
         gbc.gridwidth = 2
         gbc.insets = JBUI.insets(5)
-        projectViewToggleCheckbox = JCheckBox("Enable Project view toggle (click filename to close if already revealed)")
+        projectViewToggleCheckbox =
+            JCheckBox("Enable Project view toggle (click filename to close if already revealed)")
         projectViewToggleCheckbox!!.isSelected = settings.isProjectViewToggleEnabled()
         settingsPanel!!.add(projectViewToggleCheckbox!!, gbc)
 
