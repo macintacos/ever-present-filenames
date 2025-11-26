@@ -2,6 +2,13 @@
 
 # Changelog
 
+## [0.7.0] - 2025-11-26
+### Added
+- Clickable "(DIFF)" text in diff editor overlays: click to open the file in a regular editor
+
+### Fixed
+- Stopped rendering the overlay in editors that don't make sense (the commit view, for example)
+
 ## [0.6.0] - 2025-11-25
 ### Added
 - Added settings to change the position of the overlay
