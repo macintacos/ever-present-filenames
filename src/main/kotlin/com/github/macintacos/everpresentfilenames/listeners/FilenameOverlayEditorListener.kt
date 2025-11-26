@@ -3,6 +3,7 @@ package com.github.macintacos.everpresentfilenames.listeners
 import com.github.macintacos.everpresentfilenames.services.FilenameDisplayService
 import com.github.macintacos.everpresentfilenames.ui.FilenameOverlay
 import com.intellij.openapi.editor.Editor
+import com.intellij.openapi.editor.EditorKind
 import com.intellij.openapi.editor.event.EditorFactoryEvent
 import com.intellij.openapi.editor.event.EditorFactoryListener
 import com.intellij.openapi.fileEditor.FileDocumentManager
@@ -20,6 +21,11 @@ class FilenameOverlayEditorListener : EditorFactoryListener {
 
     override fun editorCreated(event: EditorFactoryEvent) {
         val editor = event.editor
+
+        // Only add overlay to main editors and diff editors, not to other editor types
+        // like commit message fields, console editors, etc.
+        if (editor.editorKind != EditorKind.MAIN_EDITOR && editor.editorKind != EditorKind.DIFF) return
+
         val file = FileDocumentManager.getInstance().getFile(editor.document) ?: return
 
         // Get the file icon
