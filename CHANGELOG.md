@@ -2,6 +2,10 @@
 
 # Changelog
 
+## [0.6.0] - 2025-11-25
+### Added
+- Added settings to change the position of the overlay
+
 ## [0.5.1] - 2025-11-25
 ### Added
 - Untracked file indicator: yellow "?" icon shown for files not yet added to git
