@@ -114,6 +114,8 @@ class FilenameOverlay(
     private var isHoveringText = false
     private var gitStatsBounds: Rectangle? = null
     private var isHoveringGitStats = false
+    private var diffSuffixBounds: Rectangle? = null
+    private var isHoveringDiffSuffix = false
     private var scrollOffset = 0 // Horizontal scroll offset for the text
     private var maxScrollOffset = 0 // Maximum scroll offset
 
@@ -155,6 +157,9 @@ class FilenameOverlay(
                     // Check if click is on icon (which acts as close button)
                     if (iconBounds?.contains(e.point) == true) {
                         closeFile()
+                    } else if (diffSuffixBounds?.contains(e.point) == true) {
+                        // Left click on diff suffix: Open the file in editor
+                        openFileInEditor()
                     } else if (gitStatsBounds?.contains(e.point) == true) {
                         // Left click on git stats: Show diff view
                         showFileDiff()
@@ -170,10 +175,11 @@ class FilenameOverlay(
 
             override fun mouseExited(e: MouseEvent) {
                 // Reset hover state when mouse leaves the component
-                if (isHoveringIcon || isHoveringText || isHoveringGitStats) {
+                if (isHoveringIcon || isHoveringText || isHoveringGitStats || isHoveringDiffSuffix) {
                     isHoveringIcon = false
                     isHoveringText = false
                     isHoveringGitStats = false
+                    isHoveringDiffSuffix = false
                     cursor = Cursor.getDefaultCursor()
                     repaint()
                 }
@@ -196,22 +202,28 @@ class FilenameOverlay(
                 val wasHoveringIcon = isHoveringIcon
                 val wasHoveringText = isHoveringText
                 val wasHoveringGitStats = isHoveringGitStats
+                val wasHoveringDiffSuffix = isHoveringDiffSuffix
 
                 isHoveringIcon = iconBounds?.contains(e.point) == true
+                isHoveringDiffSuffix = diffSuffixBounds?.contains(e.point) == true
                 isHoveringGitStats = gitStatsBounds?.contains(e.point) == true
                 isHoveringText = textBounds?.contains(e.point) == true
 
-                // Priority: icon > git stats > text
+                // Priority: icon > diff suffix > git stats > text
                 if (isHoveringIcon) {
+                    isHoveringDiffSuffix = false
+                    isHoveringGitStats = false
+                    isHoveringText = false
+                } else if (isHoveringDiffSuffix) {
                     isHoveringGitStats = false
                     isHoveringText = false
                 } else if (isHoveringGitStats) {
                     isHoveringText = false
                 }
 
-                if (wasHoveringIcon != isHoveringIcon || wasHoveringText != isHoveringText || wasHoveringGitStats != isHoveringGitStats) {
+                if (wasHoveringIcon != isHoveringIcon || wasHoveringText != isHoveringText || wasHoveringGitStats != isHoveringGitStats || wasHoveringDiffSuffix != isHoveringDiffSuffix) {
                     // Update cursor
-                    cursor = if (isHoveringIcon || isHoveringText || isHoveringGitStats) {
+                    cursor = if (isHoveringIcon || isHoveringText || isHoveringGitStats || isHoveringDiffSuffix) {
                         Cursor.getPredefinedCursor(Cursor.HAND_CURSOR)
                     } else {
                         Cursor.getDefaultCursor()
@@ -293,6 +305,7 @@ class FilenameOverlay(
     override fun getToolTipText(event: MouseEvent?): String? {
         return when {
             isHoveringIcon -> "Close Tab"
+            isHoveringDiffSuffix -> "Open File"
             isHoveringGitStats -> {
                 if (currentGitStats?.isUntracked == true) {
                     "Show Diff (Currently Untracked)"
@@ -586,6 +599,19 @@ class FilenameOverlay(
                 // Update the last revealed file
                 lastRevealedFile = file
             }
+        }
+    }
+
+    /**
+     * Opens the file in a regular editor (not diff view)
+     * This is used when clicking the "(DIFF)" suffix to navigate to the actual file
+     */
+    private fun openFileInEditor() {
+        val project = editor.project ?: return
+
+        ApplicationManager.getApplication().invokeLater {
+            val fileEditorManager = FileEditorManager.getInstance(project)
+            fileEditorManager.openFile(file, true)
         }
     }
 
@@ -993,19 +1019,39 @@ class FilenameOverlay(
         // Use the same accurate font metrics method as in calculatePreferredSize
         val metrics = getAccurateFontMetrics(font)
 
-        // Calculate text bounds for hover detection
-        val textLayout = java.awt.font.TextLayout(effectiveDisplayName, font, g2d.fontRenderContext)
-        val textWidth = kotlin.math.ceil(textLayout.advance).toInt()
+        // Calculate text bounds for hover detection - split filename and diff suffix
+        val filenameLayout = java.awt.font.TextLayout(displayName, font, g2d.fontRenderContext)
+        val filenameWidth = kotlin.math.ceil(filenameLayout.advance).toInt()
         val textHeight = metrics.ascent + metrics.descent
+
+        // Calculate diff suffix dimensions if in diff mode
+        // Split into space (not hoverable) and "(DIFF)" (hoverable)
+        val diffSpace = " "
+        val diffLabel = "(DIFF)"
+        val diffSpaceWidth = if (isDiffMode) metrics.stringWidth(diffSpace) else 0
+        val diffLabelWidth = if (isDiffMode) {
+            val diffLayout = java.awt.font.TextLayout(diffLabel, font, g2d.fontRenderContext)
+            kotlin.math.ceil(diffLayout.advance).toInt()
+        } else 0
+
+        val totalTextWidth = filenameWidth + diffSpaceWidth + diffLabelWidth
 
         // Apply scroll offset only to text (icon remains fixed)
         val textX = currentX - scrollOffset
         val textY = (height + metrics.ascent - metrics.descent) / 2
 
-        // Store text bounds for hover detection (accounting for scroll)
-        textBounds = Rectangle(textX, (height - textHeight) / 2, textWidth, textHeight)
+        // Store text bounds for hover detection (accounting for scroll) - only filename part
+        textBounds = Rectangle(textX, (height - textHeight) / 2, filenameWidth, textHeight)
 
-        // Draw hover highlight on text if hovering
+        // Store diff suffix bounds if in diff mode (excludes leading space)
+        if (isDiffMode) {
+            val diffLabelX = textX + filenameWidth + diffSpaceWidth
+            diffSuffixBounds = Rectangle(diffLabelX, (height - textHeight) / 2, diffLabelWidth, textHeight)
+        } else {
+            diffSuffixBounds = null
+        }
+
+        // Draw hover highlight on filename text if hovering
         if (isHoveringText) {
             val highlightPadding = JBUI.scale(2)
             g2d.color = getContrastingTextColor(editorBackground).let { textColor ->
@@ -1015,7 +1061,25 @@ class FilenameOverlay(
             g2d.fillRoundRect(
                 textX - highlightPadding,
                 (height - textHeight) / 2 - highlightPadding,
-                textWidth + highlightPadding * 2,
+                filenameWidth + highlightPadding * 2,
+                textHeight + highlightPadding * 2,
+                JBUI.scale(4),
+                JBUI.scale(4)
+            )
+        }
+
+        // Draw hover highlight on diff suffix if hovering (excludes leading space)
+        if (isDiffMode && isHoveringDiffSuffix) {
+            val highlightPadding = JBUI.scale(2)
+            val diffLabelX = textX + filenameWidth + diffSpaceWidth
+            g2d.color = getContrastingTextColor(editorBackground).let { textColor ->
+                @Suppress("UseJBColor")
+                Color(textColor.red, textColor.green, textColor.blue, 40)
+            }
+            g2d.fillRoundRect(
+                diffLabelX - highlightPadding,
+                (height - textHeight) / 2 - highlightPadding,
+                diffLabelWidth + highlightPadding * 2,
                 textHeight + highlightPadding * 2,
                 JBUI.scale(4),
                 JBUI.scale(4)
@@ -1025,12 +1089,18 @@ class FilenameOverlay(
         // Draw filename text - properly center vertically using actual text bounds (not line height)
         // This ensures consistent vertical centering regardless of font family/size
         g2d.color = getContrastingTextColor(editorBackground)
-        g2d.drawString(effectiveDisplayName, textX, textY)
+        g2d.drawString(displayName, textX, textY)
+
+        // Draw diff suffix separately if in diff mode (space + label)
+        if (isDiffMode) {
+            g2d.drawString(diffSpace, textX + filenameWidth, textY)
+            g2d.drawString(diffLabel, textX + filenameWidth + diffSpaceWidth, textY)
+        }
 
         // Draw git stats indicator after the filename (if applicable and enabled)
         val gitStats = currentGitStats
         if (showGitStats && gitStats != null && gitStats.hasChanges()) {
-            val statsStartX = textX + textWidth + gitStatsSpacing
+            val statsStartX = textX + totalTextWidth + gitStatsSpacing
             var statsX = statsStartX
 
             // Calculate the total width for hover highlight (need to pre-calculate)
